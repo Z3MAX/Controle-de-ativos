@@ -437,10 +437,17 @@ const AuthProvider = ({ children }) => {
       const result = await databaseService.users.update(user.id, updates);
       
       if (result.success) {
-        setUser(result.data);
-        setProfile(result.data);
-        localStorage.setItem('asset_manager_user', JSON.stringify(result.data));
-        return { success: true, data: result.data };
+        const updatedUser = result.data;
+        setUser(updatedUser);
+        setProfile(updatedUser);
+        localStorage.setItem('asset_manager_user', JSON.stringify(updatedUser));
+        
+        // Forçar re-render para atualizar a interface
+        setTimeout(() => {
+          setLoading(false);
+        }, 100);
+        
+        return { success: true, data: updatedUser };
       } else {
         return { success: false, error: result.error };
       }
@@ -448,7 +455,9 @@ const AuthProvider = ({ children }) => {
       console.error('Erro ao atualizar perfil:', error);
       return { success: false, error: error.message };
     } finally {
-      setLoading(false);
+      if (!result?.success) {
+        setLoading(false);
+      }
     }
   };
 
@@ -1015,14 +1024,29 @@ const ProfilePage = () => {
   const [message, setMessage] = useState('');
   const fileInputRef = useRef(null);
 
+  // Sincronizar formData com dados do usuário
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name || '',
+        company: user.company || '',
+        photo: user.photo || null
+      });
+    }
+  }, [user]);
+
   const handlePhotoCapture = async () => {
     try {
       const photo = await PhotoUtils.captureFromCamera();
-      setFormData({ ...formData, photo });
+      console.log('Foto capturada, tamanho:', photo.length);
+      setFormData(prev => ({ ...prev, photo }));
       setShowPhotoOptions(false);
+      setMessage('✅ Foto capturada com sucesso!');
+      setTimeout(() => setMessage(''), 3000);
     } catch (error) {
       console.error('Erro ao capturar foto:', error);
-      setMessage('❌ Erro ao acessar câmera');
+      setMessage('❌ Erro ao acessar câmera: ' + error.message);
+      setTimeout(() => setMessage(''), 5000);
     }
   };
 
@@ -1035,27 +1059,47 @@ const ProfilePage = () => {
     const file = e.target.files[0];
     if (file) {
       try {
+        console.log('Arquivo selecionado:', file.name, 'Tamanho:', file.size);
         const resizedPhoto = await PhotoUtils.resizeImage(file, 400, 400, 0.8);
-        setFormData({ ...formData, photo: resizedPhoto });
+        console.log('Foto redimensionada, tamanho:', resizedPhoto.length);
+        setFormData(prev => ({ ...prev, photo: resizedPhoto }));
+        setMessage('✅ Foto selecionada com sucesso!');
+        setTimeout(() => setMessage(''), 3000);
       } catch (error) {
         console.error('Erro ao processar foto:', error);
-        setMessage('❌ Erro ao processar foto');
+        setMessage('❌ Erro ao processar foto: ' + error.message);
+        setTimeout(() => setMessage(''), 5000);
       }
     }
   };
 
   const handleSave = async () => {
     try {
+      setLoading(true);
+      
+      // Log para debug
+      console.log('Dados a serem salvos:', formData);
+      
       const result = await updateProfile(formData);
       if (result.success) {
         setMessage('✅ Perfil atualizado com sucesso!');
         setEditMode(false);
-        setTimeout(() => setMessage(''), 3000);
+        
+        // Aguardar um pouco para garantir que o estado foi atualizado
+        setTimeout(() => {
+          setMessage('');
+          window.location.reload(); // Força refresh para garantir que tudo seja atualizado
+        }, 2000);
       } else {
         setMessage('❌ ' + result.error);
+        setTimeout(() => setMessage(''), 5000);
       }
     } catch (error) {
-      setMessage('❌ Erro ao atualizar perfil');
+      console.error('Erro ao salvar:', error);
+      setMessage('❌ Erro ao atualizar perfil: ' + error.message);
+      setTimeout(() => setMessage(''), 5000);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1543,16 +1587,24 @@ const AssetControlSystem = () => {
               </div>
               
               <div className="flex items-center space-x-4">
-                <div className="hidden md:block text-right">
-                  <p className="text-sm font-bold text-gray-900">{profile?.name}</p>
-                  <p className="text-xs text-gray-500">{profile?.email}</p>
-                </div>
-                
-                {profile?.photo && (
-                  <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-lg">
+                {/* Avatar do usuário */}
+                {profile?.photo ? (
+                  <div className="w-12 h-12 rounded-full overflow-hidden border-3 border-gradient-to-r from-blue-500 to-purple-500 shadow-lg ring-2 ring-white">
                     <img src={profile.photo} alt="Avatar" className="w-full h-full object-cover" />
                   </div>
+                ) : (
+                  <div className="w-12 h-12 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center shadow-lg ring-2 ring-white">
+                    <Icons.User />
+                  </div>
                 )}
+                
+                <div className="hidden md:block text-left">
+                  <p className="text-sm font-bold text-gray-900">{profile?.name}</p>
+                  <p className="text-xs text-gray-500">{profile?.email}</p>
+                  {profile?.company && (
+                    <p className="text-xs text-blue-600 font-medium">{profile.company}</p>
+                  )}
+                </div>
                 
                 <button
                   onClick={handleLogout}
