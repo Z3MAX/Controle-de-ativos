@@ -39,77 +39,22 @@ const databaseService = {
     }
   },
 
-  async runMigrations() {
-    try {
-      const sql = await this.getConnection();
-      
-      console.log('🔄 Executando migrações do banco de dados...');
-      
-      // Migração 1: Adicionar coluna photo na tabela users
-      try {
-        await sql`ALTER TABLE users ADD COLUMN photo TEXT`;
-        console.log('✅ Migração 1: Coluna photo adicionada à tabela users');
-      } catch (error) {
-        if (error.message.includes('already exists') || error.message.includes('duplicate column')) {
-          console.log('ℹ️ Migração 1: Coluna photo já existe na tabela users');
-        } else {
-          console.error('❌ Erro na migração 1:', error.message);
-        }
-      }
-      
-      // Verificar se todas as colunas necessárias existem
-      const userColumns = await sql`
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name = 'users'
-        ORDER BY column_name
-      `;
-      
-      console.log('📋 Colunas na tabela users:', userColumns.map(c => c.column_name));
-      
-      return true;
-    } catch (error) {
-      console.error('❌ Erro ao executar migrações:', error);
-      return false;
-    }
-  },
+  async initializeDatabase() {
     try {
       const sql = await this.getConnection();
 
-      // Criar tabela de usuários
+      // Criar tabela de usuários com foto
       await sql`
         CREATE TABLE IF NOT EXISTS users (
           id SERIAL PRIMARY KEY,
           email VARCHAR(255) UNIQUE NOT NULL,
           name VARCHAR(255) NOT NULL,
           company VARCHAR(255),
+          photo TEXT,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `;
-
-      // Adicionar coluna photo se não existir (migração)
-      try {
-        await sql`
-          ALTER TABLE users ADD COLUMN IF NOT EXISTS photo TEXT
-        `;
-        console.log('✅ Coluna photo adicionada/verificada na tabela users');
-      } catch (error) {
-        // Verificar se a coluna já existe
-        const columns = await sql`
-          SELECT column_name 
-          FROM information_schema.columns 
-          WHERE table_name = 'users' AND column_name = 'photo'
-        `;
-        
-        if (columns.length === 0) {
-          // Coluna não existe, criar usando syntax compatível
-          await sql`ALTER TABLE users ADD COLUMN photo TEXT`;
-          console.log('✅ Coluna photo criada na tabela users');
-        } else {
-          console.log('✅ Coluna photo já existe na tabela users');
-        }
-      }
 
       // Criar tabela de andares
       await sql`
@@ -198,40 +143,15 @@ const databaseService = {
     async update(id, updates) {
       try {
         const sql = await databaseService.getConnection();
-        
-        // Verificar se a coluna photo existe
-        const columns = await sql`
-          SELECT column_name 
-          FROM information_schema.columns 
-          WHERE table_name = 'users' AND column_name = 'photo'
+        const result = await sql`
+          UPDATE users 
+          SET name = ${updates.name}, 
+              company = ${updates.company || null},
+              photo = ${updates.photo || null},
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = ${id}
+          RETURNING *
         `;
-        
-        let result;
-        
-        if (columns.length > 0) {
-          // Coluna photo existe, incluir na atualização
-          result = await sql`
-            UPDATE users 
-            SET name = ${updates.name}, 
-                company = ${updates.company || null},
-                photo = ${updates.photo || null},
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = ${id}
-            RETURNING *
-          `;
-        } else {
-          // Coluna photo não existe, atualizar sem ela
-          console.warn('⚠️ Coluna photo não encontrada, atualizando apenas nome e empresa');
-          result = await sql`
-            UPDATE users 
-            SET name = ${updates.name}, 
-                company = ${updates.company || null},
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = ${id}
-            RETURNING *
-          `;
-        }
-        
         return { success: true, data: result[0] };
       } catch (error) {
         console.error('Erro ao atualizar usuário:', error);
@@ -1390,26 +1310,6 @@ const ProfilePage = () => {
                       <span className="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-bold">
                         ✅ Ativo
                       </span>
-                    </div>
-                    
-                    {/* Botão para executar migrações se necessário */}
-                    <div className="pt-3 border-t border-purple-200">
-                      <button
-                        onClick={async () => {
-                          try {
-                            setMessage('🔄 Executando migrações...');
-                            await databaseService.runMigrations();
-                            setMessage('✅ Migrações executadas com sucesso!');
-                            setTimeout(() => setMessage(''), 3000);
-                          } catch (error) {
-                            setMessage('❌ Erro ao executar migrações: ' + error.message);
-                            setTimeout(() => setMessage(''), 5000);
-                          }
-                        }}
-                        className="text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 px-3 py-1 rounded-lg transition-colors font-medium"
-                      >
-                        🔧 Atualizar DB
-                      </button>
                     </div>
                   </div>
                 </div>
