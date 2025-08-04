@@ -442,11 +442,6 @@ const AuthProvider = ({ children }) => {
         setProfile(updatedUser);
         localStorage.setItem('asset_manager_user', JSON.stringify(updatedUser));
         
-        // Forçar re-render para atualizar a interface
-        setTimeout(() => {
-          setLoading(false);
-        }, 100);
-        
         return { success: true, data: updatedUser };
       } else {
         return { success: false, error: result.error };
@@ -455,9 +450,7 @@ const AuthProvider = ({ children }) => {
       console.error('Erro ao atualizar perfil:', error);
       return { success: false, error: error.message };
     } finally {
-      if (!result?.success) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   };
 
@@ -645,29 +638,65 @@ const PhotoUtils = {
   // Capturar foto da câmera
   captureFromCamera: () => {
     return new Promise((resolve, reject) => {
-      navigator.mediaDevices.getUserMedia({ video: true })
+      // Verificar se o navegador suporta getUserMedia
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        reject(new Error('Câmera não suportada neste navegador'));
+        return;
+      }
+
+      navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: 'user' // Câmera frontal
+        } 
+      })
         .then(stream => {
+          // Criar elementos de vídeo e canvas
           const video = document.createElement('video');
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
           video.srcObject = stream;
-          video.play();
+          video.autoplay = true;
+          video.muted = true;
           
           video.onloadedmetadata = () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            
-            ctx.drawImage(video, 0, 0);
-            
-            // Parar stream
+            // Aguardar o vídeo carregar completamente
+            setTimeout(() => {
+              try {
+                // Definir dimensões do canvas
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                // Capturar frame atual do vídeo
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Parar todos os tracks da stream
+                stream.getTracks().forEach(track => {
+                  track.stop();
+                });
+                
+                // Converter para base64
+                const base64 = canvas.toDataURL('image/jpeg', 0.8);
+                resolve(base64);
+              } catch (error) {
+                // Parar stream em caso de erro
+                stream.getTracks().forEach(track => track.stop());
+                reject(new Error('Erro ao capturar foto: ' + error.message));
+              }
+            }, 500); // Aguardar 500ms para garantir que o vídeo esteja pronto
+          };
+          
+          video.onerror = (error) => {
             stream.getTracks().forEach(track => track.stop());
-            
-            const base64 = canvas.toDataURL('image/jpeg', 0.8);
-            resolve(base64);
+            reject(new Error('Erro no vídeo: ' + error.message));
           };
         })
-        .catch(reject);
+        .catch(error => {
+          console.error('Erro ao acessar câmera:', error);
+          reject(new Error('Não foi possível acessar a câmera. Verifique as permissões.'));
+        });
     });
   }
 };
@@ -1013,9 +1042,10 @@ const StatusBadge = ({ status }) => {
 
 // =================== PÁGINA DE PERFIL ===================
 const ProfilePage = () => {
-  const { user, updateProfile, loading } = useAuth();
+  const { user, updateProfile, loading: authLoading } = useAuth();
   const [editMode, setEditMode] = useState(false);
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
+  const [localLoading, setLocalLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
     company: user?.company || '',
@@ -1075,7 +1105,7 @@ const ProfilePage = () => {
 
   const handleSave = async () => {
     try {
-      setLoading(true);
+      setLocalLoading(true);
       
       // Log para debug
       console.log('Dados a serem salvos:', formData);
@@ -1084,12 +1114,7 @@ const ProfilePage = () => {
       if (result.success) {
         setMessage('✅ Perfil atualizado com sucesso!');
         setEditMode(false);
-        
-        // Aguardar um pouco para garantir que o estado foi atualizado
-        setTimeout(() => {
-          setMessage('');
-          window.location.reload(); // Força refresh para garantir que tudo seja atualizado
-        }, 2000);
+        setTimeout(() => setMessage(''), 3000);
       } else {
         setMessage('❌ ' + result.error);
         setTimeout(() => setMessage(''), 5000);
@@ -1099,7 +1124,7 @@ const ProfilePage = () => {
       setMessage('❌ Erro ao atualizar perfil: ' + error.message);
       setTimeout(() => setMessage(''), 5000);
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
     }
   };
 
@@ -1179,11 +1204,20 @@ const ProfilePage = () => {
                       </button>
                       <button
                         onClick={handleSave}
-                        disabled={loading}
+                        disabled={localLoading || authLoading}
                         className="bg-white text-blue-600 hover:bg-gray-50 px-6 py-3 rounded-xl flex items-center space-x-2 transition-colors font-medium disabled:opacity-50"
                       >
-                        <Icons.Check />
-                        <span>{loading ? 'Salvando...' : 'Salvar'}</span>
+                        {localLoading || authLoading ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin"></div>
+                            <span>Salvando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Icons.Check />
+                            <span>Salvar</span>
+                          </>
+                        )}
                       </button>
                     </>
                   )}
