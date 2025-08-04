@@ -80,4 +80,44 @@ export async function initializeDatabase() {
         floor_id INTEGER REFERENCES floors(id) ON DELETE CASCADE,
         user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+
+    // Criar tabela de ativos
+    await connection`
+      CREATE TABLE IF NOT EXISTS assets (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        code VARCHAR(100) NOT NULL,
+        category VARCHAR(100),
+        description TEXT,
+        value DECIMAL(12,2),
+        status VARCHAR(50) DEFAULT 'Ativo',
+        floor_id INTEGER REFERENCES floors(id),
+        room_id INTEGER REFERENCES rooms(id),
+        photo TEXT,
+        supplier VARCHAR(255),
+        serial_number VARCHAR(255),
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(code, user_id)
+      )
+    `;
+
+    // Criar índices para melhor performance
+    await connection`CREATE INDEX IF NOT EXISTS idx_assets_user_id ON assets(user_id)`;
+    await connection`CREATE INDEX IF NOT EXISTS idx_assets_floor_id ON assets(floor_id)`;
+    await connection`CREATE INDEX IF NOT EXISTS idx_assets_room_id ON assets(room_id)`;
+    await connection`CREATE INDEX IF NOT EXISTS idx_rooms_floor_id ON rooms(floor_id)`;
+    await connection`CREATE INDEX IF NOT EXISTS idx_floors_user_id ON floors(user_id)`;
+    await connection`CREATE INDEX IF NOT EXISTS idx_rooms_user_id ON rooms(user_id)`;
+
+    console.log('✅ Banco de dados inicializado com sucesso');
+    return true;
+  } catch (error) {
+    console.error('❌ Erro ao inicializar banco de dados:', error);
+    return false;
+  }
+}
