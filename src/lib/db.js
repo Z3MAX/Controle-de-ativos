@@ -18,6 +18,9 @@ const initConnection = async () => {
   }
 };
 
+// Exportar a conexão para uso direto (compatibilidade)
+export { sql };
+
 // Função para testar conexão
 export async function testConnection() {
   try {
