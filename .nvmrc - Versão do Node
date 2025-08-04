@@ -1,1 +1,6 @@
-20
+fund=false
+audit=false
+progress=false
+prefer-offline=true
+cache-max=86400000
+registry=https://registry.npmjs.org/
