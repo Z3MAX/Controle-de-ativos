@@ -1650,19 +1650,6 @@ const AssetControlSystem = () => {
     });
   };
 
-  const resetFloorForm = () => {
-    setFloorForm({ name: '', description: '' });
-    setEditingFloor(null);
-  };
-
-  const resetRoomForm = () => {
-    setRoomForm({ name: '', description: '', floor_id: '' });
-    setEditingRoom(null);
-  };
-      serial_number: ''
-    });
-  };
-
   const handleEditAsset = (asset) => {
     setEditingAsset(asset);
     setAssetForm({
