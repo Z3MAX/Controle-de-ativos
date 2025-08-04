@@ -1,47 +1,29 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-
-// https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [react()],
-  build: {
-    outDir: 'dist',
-    sourcemap: false,
-    rollupOptions: {
-      output: {
-        manualChunks: undefined,
-      },
-    },
-    // Otimizações para evitar problemas de build
-    target: 'esnext',
-    minify: 'esbuild',
-    cssCodeSplit: true,
-    chunkSizeWarningLimit: 1000,
-    // Configuração para lidar com imports dinâmicos
-    dynamicImportVarsOptions: {
-      warnOnError: true
-    }
+{
+  "name": "sistema-controle-ativos",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "lucide-react": "^0.263.1",
+    "@neondatabase/serverless": "^0.9.0"
   },
-  server: {
-    port: 3000,
-    open: true
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.0.0",
+    "autoprefixer": "^10.4.14",
+    "postcss": "^8.4.24",
+    "tailwindcss": "^3.3.2",
+    "vite": "^4.4.0",
+    "@types/node": "^20.0.0"
   },
-  // Configurações para variáveis de ambiente
-  define: {
-    'process.env': process.env,
-    global: 'globalThis'
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "db:test": "node -e \"import('./src/lib/db.js').then(db => db.testConnection())\""
   },
-  // Otimizações para dependências
-  optimizeDeps: {
-    include: ['react', 'react-dom', 'lucide-react'],
-    exclude: ['@neondatabase/serverless']
-  },
-  // Configuração adicional para resolver problemas de build
-  resolve: {
-    alias: {
-      '@': '/src'
-    }
-  },
-  // Configuração para WebAssembly se necessário
-  assetsInclude: ['**/*.wasm']
-})
+  "engines": {
+    "node": ">=18.0.0 <21.0.0",
+    "npm": ">=9.0.0"
+  }
+}
