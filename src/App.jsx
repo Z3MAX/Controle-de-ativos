@@ -1,3 +1,5 @@
+// Substitua o arquivo src/App.jsx pelo código abaixo:
+
 import React, { useState, useEffect, createContext, useContext, useRef } from 'react';
 
 // =================== CONTEXT DE AUTENTICAÇÃO ===================
@@ -195,6 +197,21 @@ const databaseService = {
         console.error('Erro ao criar andar:', error);
         return { success: false, error: error.message };
       }
+    },
+
+    async getByName(name, userId) {
+      try {
+        const sql = await databaseService.getConnection();
+        const result = await sql`
+          SELECT * FROM floors 
+          WHERE LOWER(name) LIKE LOWER(${`%${name}%`}) AND user_id = ${userId}
+          LIMIT 1
+        `;
+        return { success: true, data: result[0] || null };
+      } catch (error) {
+        console.error('Erro ao buscar andar por nome:', error);
+        return { success: false, error: error.message };
+      }
     }
   },
 
@@ -301,6 +318,107 @@ const AuthProvider = ({ children }) => {
   const [dbReady, setDbReady] = useState(false);
   const [connectionError, setConnectionError] = useState(null);
 
+  // ============= FUNÇÃO PARA CRIAR ANDARES PADRÃO =============
+  const createDefaultFloors = async (userId) => {
+    try {
+      console.log('🏢 Verificando andares padrão para usuário:', userId);
+      
+      // Verificar se os andares já existem
+      const existingFloors = await databaseService.floors.getAll(userId);
+      if (!existingFloors.success) {
+        console.error('Erro ao buscar andares existentes');
+        return;
+      }
+
+      const floorNames = existingFloors.data.map(floor => floor.name.toLowerCase());
+      
+      // Andares que devem existir por padrão
+      const defaultFloors = [
+        {
+          name: '5º Andar',
+          description: 'Quinto andar - Administrativo e Financeiro'
+        },
+        {
+          name: '11º Andar', 
+          description: 'Décimo primeiro andar - Tecnologia e Inovação'
+        },
+        {
+          name: '15º Andar',
+          description: 'Décimo quinto andar - Diretoria Executiva'
+        }
+      ];
+
+      // Criar apenas os andares que não existem
+      for (const floorData of defaultFloors) {
+        const floorExists = floorNames.some(name => 
+          name.includes('5') && floorData.name.includes('5') ||
+          name.includes('11') && floorData.name.includes('11') ||
+          name.includes('15') && floorData.name.includes('15')
+        );
+
+        if (!floorExists) {
+          console.log(`🏢 Criando andar padrão: ${floorData.name}`);
+          const result = await databaseService.floors.create(floorData, userId);
+          
+          if (result.success) {
+            console.log(`✅ Andar "${floorData.name}" criado com sucesso`);
+            
+            // Criar algumas salas padrão para cada andar
+            await createDefaultRooms(result.data.id, userId, floorData.name);
+          } else {
+            console.error(`❌ Erro ao criar andar "${floorData.name}":`, result.error);
+          }
+        } else {
+          console.log(`ℹ️ Andar "${floorData.name}" já existe`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erro ao criar andares padrão:', error);
+    }
+  };
+
+  // ============= FUNÇÃO PARA CRIAR SALAS PADRÃO =============
+  const createDefaultRooms = async (floorId, userId, floorName) => {
+    try {
+      let defaultRooms = [];
+      
+      // Definir salas específicas para cada andar
+      if (floorName.includes('5')) {
+        defaultRooms = [
+          { name: 'Sala de Reuniões 501', description: 'Sala de reuniões principal' },
+          { name: 'Departamento Financeiro', description: 'Setor financeiro e contábil' },
+          { name: 'Recursos Humanos', description: 'Departamento de RH' }
+        ];
+      } else if (floorName.includes('11')) {
+        defaultRooms = [
+          { name: 'Sala de Desenvolvimento', description: 'Equipe de desenvolvimento de software' },
+          { name: 'Laboratório de Testes', description: 'Ambiente para testes e homologação' },
+          { name: 'Sala de Inovação', description: 'Espaço para brainstorming e inovação' }
+        ];
+      } else if (floorName.includes('15')) {
+        defaultRooms = [
+          { name: 'Sala da Diretoria', description: 'Sala do conselho executivo' },
+          { name: 'Sala de Reuniões Executiva', description: 'Reuniões de alta gestão' },
+          { name: 'Secretaria Executiva', description: 'Suporte à diretoria' }
+        ];
+      }
+
+      // Criar as salas
+      for (const roomData of defaultRooms) {
+        const roomResult = await databaseService.rooms.create({
+          ...roomData,
+          floor_id: floorId
+        }, userId);
+        
+        if (roomResult.success) {
+          console.log(`✅ Sala "${roomData.name}" criada no ${floorName}`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erro ao criar salas padrão:', error);
+    }
+  };
+
   useEffect(() => {
     const initializeApp = async () => {
       try {
@@ -329,6 +447,9 @@ const AuthProvider = ({ children }) => {
             if (userCheck.success && userCheck.data) {
               setUser(userCheck.data);
               setProfile(userCheck.data);
+              
+              // ============= CRIAR ANDARES AUTOMATICAMENTE =============
+              await createDefaultFloors(userCheck.data.id);
             } else {
               localStorage.removeItem('asset_manager_user');
             }
@@ -374,6 +495,9 @@ const AuthProvider = ({ children }) => {
         setProfile(userData);
         localStorage.setItem('asset_manager_user', JSON.stringify(userData));
         
+        // ============= CRIAR ANDARES PADRÃO PARA NOVO USUÁRIO =============
+        await createDefaultFloors(userData.id);
+        
         return { success: true, data: { user: userData } };
       } else {
         return { success: false, error: result.error };
@@ -401,6 +525,9 @@ const AuthProvider = ({ children }) => {
         setUser(userData);
         setProfile(userData);
         localStorage.setItem('asset_manager_user', JSON.stringify(userData));
+        
+        // ============= CRIAR ANDARES PADRÃO SE NÃO EXISTIREM =============
+        await createDefaultFloors(userData.id);
         
         return { success: true, data: { user: userData } };
       } else {
@@ -709,382 +836,7 @@ const PhotoOptionsModal = ({ isOpen, onClose, onCameraSelect, onGallerySelect })
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
       <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl border border-white/20 overflow-hidden">
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-3">Nome do Andar *</label>
-              <input
-                type="text"
-                value={floorForm.name}
-                onChange={(e) => setFloorForm({...floorForm, name: e.target.value})}
-                className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-medium"
-                placeholder="Ex: 1º Andar, Térreo, Subsolo"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-3">Descrição</label>
-              <textarea
-                value={floorForm.description}
-                onChange={(e) => setFloorForm({...floorForm, description: e.target.value})}
-                rows={4}
-                className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-medium resize-none"
-                placeholder="Descrição do andar (opcional)..."
-              />
-            </div>
-          </div>
-          
-          <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray-200">
-            <button
-              onClick={() => {
-                setShowFloorForm(false);
-                setFloorForm({ name: '', description: '' });
-              }}
-              className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all font-bold"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleSaveFloor}
-              disabled={isLoading}
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 disabled:from-gray-400 disabled:to-gray-400 text-white rounded-2xl transition-all font-bold shadow-lg hover:shadow-xl transform hover:scale-105"
-            >
-              {isLoading ? (
-                <div className="flex items-center space-x-2">
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span>Salvando...</span>
-                </div>
-              ) : (
-                '💾 Salvar Andar'
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const AssetDetailModal = ({ 
-  showAssetDetail, 
-  setShowAssetDetail, 
-  handleEditAsset, 
-  getFloorName, 
-  getRoomName, 
-  StatusBadge,
-  Icons 
-}) => {
-  if (!showAssetDetail) return null;
-
-  return (
-    <div className="fixed inset-0 bg-gradient-to-br from-slate-900/80 via-purple-900/80 to-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white/95 backdrop-blur-xl rounded-3xl w-full max-w-6xl max-h-[95vh] overflow-y-auto shadow-2xl border border-white/20">
-        <div className="p-8">
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-gray-900 bg-clip-text text-transparent">
-                🔍 Detalhes do Ativo
-              </h3>
-              <p className="text-gray-600 mt-2 font-medium">Informações completas do ativo</p>
-            </div>
-            <button
-              onClick={() => setShowAssetDetail(null)}
-              className="p-3 hover:bg-gray-100 rounded-2xl transition-colors"
-            >
-              <Icons.X />
-            </button>
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="space-y-6">
-              <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-6 rounded-2xl border border-blue-100">
-                <label className="block text-sm font-bold text-blue-700 mb-2">Nome</label>
-                <p className="text-xl font-bold text-blue-900">{showAssetDetail.name}</p>
-              </div>
-              
-              <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-2xl border border-purple-100">
-                <label className="block text-sm font-bold text-purple-700 mb-2">Código</label>
-                <p className="text-lg font-mono font-bold text-purple-900 bg-white/70 px-3 py-2 rounded-xl inline-block">
-                  {showAssetDetail.code}
-                </p>
-              </div>
-              
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-2xl border border-green-100">
-                <label className="block text-sm font-bold text-green-700 mb-3">Categoria</label>
-                <span className="inline-block px-4 py-2 bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 rounded-2xl text-sm font-bold border border-green-200">
-                  {showAssetDetail.category || 'Sem categoria'}
-                </span>
-              </div>
-              
-              <div className="bg-gradient-to-r from-orange-50 to-red-50 p-6 rounded-2xl border border-orange-100">
-                <label className="block text-sm font-bold text-orange-700 mb-3">Status</label>
-                <StatusBadge status={showAssetDetail.status} />
-              </div>
-              
-              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 p-6 rounded-2xl border border-indigo-100">
-                <label className="block text-sm font-bold text-indigo-700 mb-2">Localização</label>
-                <div className="flex items-center space-x-2 text-indigo-900">
-                  <Icons.MapPin />
-                  <p className="font-bold text-lg">
-                    {getFloorName(showAssetDetail.floor_id)} {showAssetDetail.room_id ? `- ${getRoomName(showAssetDetail.room_id)}` : '(Sem sala específica)'}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="bg-gradient-to-r from-yellow-50 to-orange-50 p-6 rounded-2xl border border-yellow-100">
-                <label className="block text-sm font-bold text-yellow-700 mb-2">Valor</label>
-                <div className="flex items-center space-x-2">
-                  <Icons.DollarSign />
-                  <p className="text-xl font-bold text-yellow-900">
-                    {showAssetDetail.value ? 
-                      `R$ ${parseFloat(showAssetDetail.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 
-                      'Não informado'
-                    }
-                  </p>
-                </div>
-              </div>
-
-              {showAssetDetail.supplier && (
-                <div className="bg-gradient-to-r from-teal-50 to-cyan-50 p-6 rounded-2xl border border-teal-100">
-                  <label className="block text-sm font-bold text-teal-700 mb-2">Fornecedor</label>
-                  <p className="text-lg font-bold text-teal-900">{showAssetDetail.supplier}</p>
-                </div>
-              )}
-
-              {showAssetDetail.serial_number && (
-                <div className="bg-gradient-to-r from-rose-50 to-pink-50 p-6 rounded-2xl border border-rose-100">
-                  <label className="block text-sm font-bold text-rose-700 mb-2">Número de Série</label>
-                  <p className="text-lg font-mono font-bold text-rose-900 bg-white/70 px-3 py-2 rounded-xl inline-block">
-                    {showAssetDetail.serial_number}
-                  </p>
-                </div>
-              )}
-            </div>
-            
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-4">📷 Foto do Ativo</label>
-                <div className="w-full h-80 bg-gradient-to-br from-gray-100 to-gray-200 rounded-3xl overflow-hidden border-4 border-white shadow-xl">
-                  {showAssetDetail.photo ? (
-                    <img 
-                      src={showAssetDetail.photo} 
-                      alt={showAssetDetail.name} 
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300">
-                      <div className="text-center">
-                        <div className="w-16 h-16 bg-gray-400 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                          <Icons.Camera />
-                        </div>
-                        <span className="text-gray-600 font-bold">Nenhuma foto disponível</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              {showAssetDetail.description && (
-                <div className="bg-gradient-to-r from-slate-50 to-gray-50 p-6 rounded-2xl border border-slate-200">
-                  <label className="block text-sm font-bold text-slate-700 mb-3">📝 Descrição</label>
-                  <p className="text-slate-900 font-medium leading-relaxed">{showAssetDetail.description}</p>
-                </div>
-              )}
-
-              <div className="bg-gradient-to-r from-gray-50 to-slate-50 p-6 rounded-2xl border border-gray-200">
-                <label className="block text-sm font-bold text-gray-700 mb-4">🔧 Informações do Sistema</label>
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-center justify-between p-3 bg-white/80 rounded-xl">
-                    <span className="font-bold text-gray-600">Criado em:</span>
-                    <span className="font-mono text-gray-900">
-                      {new Date(showAssetDetail.created_at).toLocaleDateString('pt-BR')}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-white/80 rounded-xl">
-                    <span className="font-bold text-gray-600">Última atualização:</span>
-                    <span className="font-mono text-gray-900">
-                      {new Date(showAssetDetail.updated_at).toLocaleDateString('pt-BR')}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex justify-end space-x-4 mt-10 pt-6 border-t border-gray-200">
-            <button
-              onClick={() => {
-                setShowAssetDetail(null);
-                handleEditAsset(showAssetDetail);
-              }}
-              className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-2xl transition-all font-bold shadow-lg hover:shadow-xl transform hover:scale-105"
-            >
-              <div className="flex items-center space-x-2">
-                <Icons.Edit />
-                <span>✏️ Editar Ativo</span>
-              </div>
-            </button>
-            <button
-              onClick={() => setShowAssetDetail(null)}
-              className="px-8 py-4 border-2 border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all font-bold"
-            >
-              Fechar
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// =================== COMPONENTE PRINCIPAL ===================
-const App = () => {
-  const { user, loading, dbReady, connectionError } = useAuth();
-  const [showAuthModal, setShowAuthModal] = useState(false);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-500 rounded-3xl flex items-center justify-center mx-auto mb-6 animate-pulse shadow-2xl">
-            <Icons.Package />
-          </div>
-          <div className="space-y-2">
-            <p className="text-gray-800 text-xl font-bold">Conectando ao NeonDB...</p>
-            <div className="flex items-center justify-center space-x-1">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
-              <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-              <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (connectionError) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-red-50 flex items-center justify-center p-4">
-        <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-10 max-w-md w-full shadow-2xl border border-white/20 text-center">
-          <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-pink-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl">
-            <Icons.AlertCircle />
-          </div>
-          <h2 className="text-2xl font-bold text-red-800 mb-4">❌ Erro de Conexão</h2>
-          <p className="text-red-600 mb-6 font-medium">{connectionError}</p>
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
-            <p className="text-sm text-red-700 font-medium">
-              💡 Verifique se a variável <code className="bg-red-100 px-2 py-1 rounded font-mono">VITE_DATABASE_URL</code> está configurada corretamente.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <>
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-4 relative overflow-hidden">
-          {/* Background Animated Elements */}
-          <div className="absolute inset-0 overflow-hidden">
-            <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-3xl animate-pulse"></div>
-            <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
-          </div>
-          
-          <div className="max-w-lg w-full relative z-10">
-            <div className="text-center mb-12">
-              <div className="w-24 h-24 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl transform hover:scale-110 transition-transform duration-300">
-                <Icons.Package />
-              </div>
-              <h1 className="text-5xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent mb-4">
-                AssetManager Pro
-              </h1>
-              <p className="text-gray-700 text-xl font-medium mb-2">Sistema Inteligente de Controle de Ativos</p>
-              <div className="flex items-center justify-center space-x-2 text-sm">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-green-700 font-bold">Conectado ao NeonDB PostgreSQL</span>
-              </div>
-            </div>
-
-            <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 p-8 text-white">
-                <h2 className="text-3xl font-bold text-center mb-4">🚀 Bem-vindo!</h2>
-                <p className="text-center text-blue-100 font-medium">
-                  Gerencie seus ativos com tecnologia de ponta
-                </p>
-              </div>
-              
-              <div className="p-8">
-                <div className="grid grid-cols-1 gap-4 mb-8">
-                  <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl border border-blue-100">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg">
-                      <Icons.CheckCircle />
-                    </div>
-                    <div>
-                      <p className="font-bold text-blue-900">Gestão Completa de Ativos</p>
-                      <p className="text-sm text-blue-700">Controle total dos seus equipamentos</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl border border-green-100">
-                    <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center shadow-lg">
-                      <Icons.Camera />
-                    </div>
-                    <div>
-                      <p className="font-bold text-green-900">Fotos Inteligentes</p>
-                      <p className="text-sm text-green-700">Capture fotos diretamente no sistema</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl border border-purple-100">
-                    <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg">
-                      <Icons.Building />
-                    </div>
-                    <div>
-                      <p className="font-bold text-purple-900">Banco PostgreSQL Seguro</p>
-                      <p className="text-sm text-purple-700">Dados protegidos na nuvem NeonDB</p>
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setShowAuthModal(true)}
-                  className="w-full bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white py-5 px-8 rounded-2xl font-bold transition-all shadow-xl hover:shadow-2xl transform hover:scale-105 text-lg"
-                >
-                  🚀 Acessar Sistema
-                </button>
-
-                <div className="mt-8 text-center">
-                  <div className="flex items-center justify-center space-x-2 text-sm">
-                    <Icons.CheckCircle />
-                    <span className="text-green-700 font-bold">Conexão com NeonDB estabelecida</span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Sistema pronto para uso • Dados seguros e sincronizados
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
-      </>
-    );
-  }
-
-  // Usuário logado - mostrar sistema completo
-  return <AssetControlSystem />;
-};
-
-const AppWithProvider = () => {
-  return (
-    <AuthProvider>
-      <App />
-    </AuthProvider>
-  );
-};
-
-export default AppWithProvider;="flex justify-between items-center">
+          <div className="flex justify-between items-center">
             <div>
               <h3 className="text-xl font-bold">📷 Adicionar Foto</h3>
               <p className="text-blue-100 text-sm mt-1">Escolha uma opção</p>
@@ -1721,7 +1473,7 @@ const AssetControlSystem = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showAssetForm, setShowAssetForm] = useState(false);
   const [showRoomForm, setShowRoomForm] = useState(false);
-  const [showFloorForm, setShowFloorForm] = useState(false); // Nova state para modal de andar
+  const [showFloorForm, setShowFloorForm] = useState(false);
   const [editingAsset, setEditingAsset] = useState(null);
   const [showAssetDetail, setShowAssetDetail] = useState(null);
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
@@ -1750,7 +1502,6 @@ const AssetControlSystem = () => {
     floor_id: ''
   });
 
-  // Nova state para formulário de andar
   const [floorForm, setFloorForm] = useState({
     name: '',
     description: ''
@@ -1899,7 +1650,6 @@ const AssetControlSystem = () => {
     }
   };
 
-  // Nova função para salvar andar
   const handleSaveFloor = async () => {
     if (!floorForm.name) {
       alert('Nome do andar é obrigatório');
@@ -2419,46 +2169,88 @@ const AssetControlSystem = () => {
                     <div className="w-20 h-20 bg-gradient-to-br from-gray-200 to-gray-300 rounded-3xl flex items-center justify-center mx-auto mb-6">
                       <Icons.Building />
                     </div>
-                    <h4 className="text-xl font-bold text-gray-900 mb-2">Nenhum andar cadastrado</h4>
-                    <p className="text-gray-600 mb-8">Configure os andares da sua empresa primeiro</p>
-                    <button
-                      onClick={() => setShowFloorForm(true)}
-                      className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white px-8 py-4 rounded-2xl font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all"
-                    >
-                      🏢 Criar Primeiro Andar
-                    </button>
+                    <h4 className="text-xl font-bold text-gray-900 mb-2">Carregando andares padrão...</h4>
+                    <p className="text-gray-600 mb-8">Os andares 5º, 11º e 15º serão criados automaticamente</p>
+                    <div className="flex items-center justify-center space-x-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                      <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                    </div>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {floors.map(floor => (
-                      <div key={floor.id} className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-6 hover:shadow-lg transition-all">
-                        <div className="flex items-start justify-between mb-4">
-                          <div>
-                            <h4 className="text-lg font-bold text-green-900">{floor.name}</h4>
-                            {floor.description && (
-                              <p className="text-sm text-green-700 mt-1">{floor.description}</p>
-                            )}
+                    {floors.map(floor => {
+                      // Verificar se é um andar padrão
+                      const isDefaultFloor = ['5', '11', '15'].some(num => floor.name.includes(num));
+                      
+                      return (
+                        <div key={floor.id} className={`${
+                          isDefaultFloor 
+                            ? 'bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200' 
+                            : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200'
+                        } border rounded-2xl p-6 hover:shadow-lg transition-all relative`}>
+                          {isDefaultFloor && (
+                            <div className="absolute top-2 right-2">
+                              <span className="bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+                                ⭐ Padrão
+                              </span>
+                            </div>
+                          )}
+                          
+                          <div className="flex items-start justify-between mb-4">
+                            <div>
+                              <h4 className={`text-lg font-bold ${
+                                isDefaultFloor ? 'text-blue-900' : 'text-green-900'
+                              }`}>
+                                {floor.name}
+                              </h4>
+                              {floor.description && (
+                                <p className={`text-sm mt-1 ${
+                                  isDefaultFloor ? 'text-blue-700' : 'text-green-700'
+                                }`}>
+                                  {floor.description}
+                                </p>
+                              )}
+                            </div>
+                            <span className={`${
+                              isDefaultFloor 
+                                ? 'bg-blue-100 text-blue-800' 
+                                : 'bg-green-100 text-green-800'
+                            } px-3 py-1 rounded-full text-xs font-bold`}>
+                              {floor.rooms?.length || 0} sala(s)
+                            </span>
                           </div>
-                          <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold">
-                            {floor.rooms?.length || 0} sala(s)
-                          </span>
+                          
+                          {floor.rooms && floor.rooms.length > 0 && (
+                            <div className="space-y-2">
+                              <h5 className={`text-sm font-bold mb-2 ${
+                                isDefaultFloor ? 'text-blue-800' : 'text-green-800'
+                              }`}>
+                                🚪 Salas:
+                              </h5>
+                              {floor.rooms.map(room => (
+                                <div key={room.id} className={`bg-white/80 rounded-lg p-3 border ${
+                                  isDefaultFloor ? 'border-blue-100' : 'border-green-100'
+                                }`}>
+                                  <p className={`font-medium ${
+                                    isDefaultFloor ? 'text-blue-900' : 'text-green-900'
+                                  }`}>
+                                    {room.name}
+                                  </p>
+                                  {room.description && (
+                                    <p className={`text-xs mt-1 ${
+                                      isDefaultFloor ? 'text-blue-600' : 'text-green-600'
+                                    }`}>
+                                      {room.description}
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                        
-                        {floor.rooms && floor.rooms.length > 0 && (
-                          <div className="space-y-2">
-                            <h5 className="text-sm font-bold text-green-800 mb-2">🚪 Salas:</h5>
-                            {floor.rooms.map(room => (
-                              <div key={room.id} className="bg-white/80 rounded-lg p-3 border border-green-100">
-                                <p className="font-medium text-green-900">{room.name}</p>
-                                {room.description && (
-                                  <p className="text-xs text-green-600 mt-1">{room.description}</p>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -2522,7 +2314,7 @@ const AssetControlSystem = () => {
         />
       )}
 
-      {/* Modal de Andar - NOVO */}
+      {/* Modal de Andar */}
       {showFloorForm && (
         <FloorFormModal
           showFloorForm={showFloorForm}
@@ -2921,7 +2713,6 @@ const RoomFormModal = ({
   );
 };
 
-// NOVO MODAL DE ANDAR
 const FloorFormModal = ({ 
   showFloorForm, 
   setShowFloorForm, 
@@ -2957,4 +2748,379 @@ const FloorFormModal = ({
             </button>
           </div>
           
-          <div className
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-3">Nome do Andar *</label>
+              <input
+                type="text"
+                value={floorForm.name}
+                onChange={(e) => setFloorForm({...floorForm, name: e.target.value})}
+                className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-medium"
+                placeholder="Ex: 1º Andar, Térreo, Subsolo"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-3">Descrição</label>
+              <textarea
+                value={floorForm.description}
+                onChange={(e) => setFloorForm({...floorForm, description: e.target.value})}
+                rows={4}
+                className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-medium resize-none"
+                placeholder="Descrição do andar (opcional)..."
+              />
+            </div>
+          </div>
+          
+          <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray-200">
+            <button
+              onClick={() => {
+                setShowFloorForm(false);
+                setFloorForm({ name: '', description: '' });
+              }}
+              className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all font-bold"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSaveFloor}
+              disabled={isLoading}
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 disabled:from-gray-400 disabled:to-gray-400 text-white rounded-2xl transition-all font-bold shadow-lg hover:shadow-xl transform hover:scale-105"
+            >
+              {isLoading ? (
+                <div className="flex items-center space-x-2">
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span>Salvando...</span>
+                </div>
+              ) : (
+                '💾 Salvar Andar'
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AssetDetailModal = ({ 
+  showAssetDetail, 
+  setShowAssetDetail, 
+  handleEditAsset, 
+  getFloorName, 
+  getRoomName, 
+  StatusBadge,
+  Icons 
+}) => {
+  if (!showAssetDetail) return null;
+
+  return (
+    <div className="fixed inset-0 bg-gradient-to-br from-slate-900/80 via-purple-900/80 to-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white/95 backdrop-blur-xl rounded-3xl w-full max-w-6xl max-h-[95vh] overflow-y-auto shadow-2xl border border-white/20">
+        <div className="p-8">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-gray-900 bg-clip-text text-transparent">
+                🔍 Detalhes do Ativo
+              </h3>
+              <p className="text-gray-600 mt-2 font-medium">Informações completas do ativo</p>
+            </div>
+            <button
+              onClick={() => setShowAssetDetail(null)}
+              className="p-3 hover:bg-gray-100 rounded-2xl transition-colors"
+            >
+              <Icons.X />
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="space-y-6">
+              <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-6 rounded-2xl border border-blue-100">
+                <label className="block text-sm font-bold text-blue-700 mb-2">Nome</label>
+                <p className="text-xl font-bold text-blue-900">{showAssetDetail.name}</p>
+              </div>
+              
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-2xl border border-purple-100">
+                <label className="block text-sm font-bold text-purple-700 mb-2">Código</label>
+                <p className="text-lg font-mono font-bold text-purple-900 bg-white/70 px-3 py-2 rounded-xl inline-block">
+                  {showAssetDetail.code}
+                </p>
+              </div>
+              
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-2xl border border-green-100">
+                <label className="block text-sm font-bold text-green-700 mb-3">Categoria</label>
+                <span className="inline-block px-4 py-2 bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 rounded-2xl text-sm font-bold border border-green-200">
+                  {showAssetDetail.category || 'Sem categoria'}
+                </span>
+              </div>
+              
+              <div className="bg-gradient-to-r from-orange-50 to-red-50 p-6 rounded-2xl border border-orange-100">
+                <label className="block text-sm font-bold text-orange-700 mb-3">Status</label>
+                <StatusBadge status={showAssetDetail.status} />
+              </div>
+              
+              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 p-6 rounded-2xl border border-indigo-100">
+                <label className="block text-sm font-bold text-indigo-700 mb-2">Localização</label>
+                <div className="flex items-center space-x-2 text-indigo-900">
+                  <Icons.MapPin />
+                  <p className="font-bold text-lg">
+                    {getFloorName(showAssetDetail.floor_id)} {showAssetDetail.room_id ? `- ${getRoomName(showAssetDetail.room_id)}` : '(Sem sala específica)'}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="bg-gradient-to-r from-yellow-50 to-orange-50 p-6 rounded-2xl border border-yellow-100">
+                <label className="block text-sm font-bold text-yellow-700 mb-2">Valor</label>
+                <div className="flex items-center space-x-2">
+                  <Icons.DollarSign />
+                  <p className="text-xl font-bold text-yellow-900">
+                    {showAssetDetail.value ? 
+                      `R$ ${parseFloat(showAssetDetail.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 
+                      'Não informado'
+                    }
+                  </p>
+                </div>
+              </div>
+
+              {showAssetDetail.supplier && (
+                <div className="bg-gradient-to-r from-teal-50 to-cyan-50 p-6 rounded-2xl border border-teal-100">
+                  <label className="block text-sm font-bold text-teal-700 mb-2">Fornecedor</label>
+                  <p className="text-lg font-bold text-teal-900">{showAssetDetail.supplier}</p>
+                </div>
+              )}
+
+              {showAssetDetail.serial_number && (
+                <div className="bg-gradient-to-r from-rose-50 to-pink-50 p-6 rounded-2xl border border-rose-100">
+                  <label className="block text-sm font-bold text-rose-700 mb-2">Número de Série</label>
+                  <p className="text-lg font-mono font-bold text-rose-900 bg-white/70 px-3 py-2 rounded-xl inline-block">
+                    {showAssetDetail.serial_number}
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-4">📷 Foto do Ativo</label>
+                <div className="w-full h-80 bg-gradient-to-br from-gray-100 to-gray-200 rounded-3xl overflow-hidden border-4 border-white shadow-xl">
+                  {showAssetDetail.photo ? (
+                    <img 
+                      src={showAssetDetail.photo} 
+                      alt={showAssetDetail.name} 
+                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300">
+                      <div className="text-center">
+                        <div className="w-16 h-16 bg-gray-400 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                          <Icons.Camera />
+                        </div>
+                        <span className="text-gray-600 font-bold">Nenhuma foto disponível</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {showAssetDetail.description && (
+                <div className="bg-gradient-to-r from-slate-50 to-gray-50 p-6 rounded-2xl border border-slate-200">
+                  <label className="block text-sm font-bold text-slate-700 mb-3">📝 Descrição</label>
+                  <p className="text-slate-900 font-medium leading-relaxed">{showAssetDetail.description}</p>
+                </div>
+              )}
+
+              <div className="bg-gradient-to-r from-gray-50 to-slate-50 p-6 rounded-2xl border border-gray-200">
+                <label className="block text-sm font-bold text-gray-700 mb-4">🔧 Informações do Sistema</label>
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center justify-between p-3 bg-white/80 rounded-xl">
+                    <span className="font-bold text-gray-600">Criado em:</span>
+                    <span className="font-mono text-gray-900">
+                      {new Date(showAssetDetail.created_at).toLocaleDateString('pt-BR')}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-white/80 rounded-xl">
+                    <span className="font-bold text-gray-600">Última atualização:</span>
+                    <span className="font-mono text-gray-900">
+                      {new Date(showAssetDetail.updated_at).toLocaleDateString('pt-BR')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex justify-end space-x-4 mt-10 pt-6 border-t border-gray-200">
+            <button
+              onClick={() => {
+                setShowAssetDetail(null);
+                handleEditAsset(showAssetDetail);
+              }}
+              className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-2xl transition-all font-bold shadow-lg hover:shadow-xl transform hover:scale-105"
+            >
+              <div className="flex items-center space-x-2">
+                <Icons.Edit />
+                <span>✏️ Editar Ativo</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setShowAssetDetail(null)}
+              className="px-8 py-4 border-2 border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all font-bold"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// =================== COMPONENTE PRINCIPAL ===================
+const App = () => {
+  const { user, loading, dbReady, connectionError } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-500 rounded-3xl flex items-center justify-center mx-auto mb-6 animate-pulse shadow-2xl">
+            <Icons.Package />
+          </div>
+          <div className="space-y-2">
+            <p className="text-gray-800 text-xl font-bold">Conectando ao NeonDB...</p>
+            <div className="flex items-center justify-center space-x-1">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+              <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+              <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (connectionError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-red-50 flex items-center justify-center p-4">
+        <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-10 max-w-md w-full shadow-2xl border border-white/20 text-center">
+          <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-pink-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl">
+            <Icons.AlertCircle />
+          </div>
+          <h2 className="text-2xl font-bold text-red-800 mb-4">❌ Erro de Conexão</h2>
+          <p className="text-red-600 mb-6 font-medium">{connectionError}</p>
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+            <p className="text-sm text-red-700 font-medium">
+              💡 Verifique se a variável <code className="bg-red-100 px-2 py-1 rounded font-mono">VITE_DATABASE_URL</code> está configurada corretamente.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <>
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-4 relative overflow-hidden">
+          {/* Background Animated Elements */}
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-3xl animate-pulse"></div>
+            <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
+          </div>
+          
+          <div className="max-w-lg w-full relative z-10">
+            <div className="text-center mb-12">
+              <div className="w-24 h-24 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl transform hover:scale-110 transition-transform duration-300">
+                <Icons.Package />
+              </div>
+              <h1 className="text-5xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent mb-4">
+                AssetManager Pro
+              </h1>
+              <p className="text-gray-700 text-xl font-medium mb-2">Sistema Inteligente de Controle de Ativos</p>
+              <div className="flex items-center justify-center space-x-2 text-sm">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-green-700 font-bold">Conectado ao NeonDB PostgreSQL</span>
+              </div>
+            </div>
+
+            <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 p-8 text-white">
+                <h2 className="text-3xl font-bold text-center mb-4">🚀 Bem-vindo!</h2>
+                <p className="text-center text-blue-100 font-medium">
+                  Gerencie seus ativos com tecnologia de ponta
+                </p>
+              </div>
+              
+              <div className="p-8">
+                <div className="grid grid-cols-1 gap-4 mb-8">
+                  <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl border border-blue-100">
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg">
+                      <Icons.CheckCircle />
+                    </div>
+                    <div>
+                      <p className="font-bold text-blue-900">Gestão Completa de Ativos</p>
+                      <p className="text-sm text-blue-700">Controle total dos seus equipamentos</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl border border-green-100">
+                    <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center shadow-lg">
+                      <Icons.Camera />
+                    </div>
+                    <div>
+                      <p className="font-bold text-green-900">Fotos Inteligentes</p>
+                      <p className="text-sm text-green-700">Capture fotos diretamente no sistema</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl border border-purple-100">
+                    <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg">
+                      <Icons.Building />
+                    </div>
+                    <div>
+                      <p className="font-bold text-purple-900">Andares Pré-Configurados</p>
+                      <p className="text-sm text-purple-700">5º, 11º e 15º andares já cadastrados</p>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="w-full bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white py-5 px-8 rounded-2xl font-bold transition-all shadow-xl hover:shadow-2xl transform hover:scale-105 text-lg"
+                >
+                  🚀 Acessar Sistema
+                </button>
+
+                <div className="mt-8 text-center">
+                  <div className="flex items-center justify-center space-x-2 text-sm">
+                    <Icons.CheckCircle />
+                    <span className="text-green-700 font-bold">Conexão com NeonDB estabelecida</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Sistema pronto para uso • Andares padrão inclusos
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      </>
+    );
+  }
+
+  // Usuário logado - mostrar sistema completo
+  return <AssetControlSystem />;
+};
+
+const AppWithProvider = () => {
+  return (
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  );
+};
+
+export default AppWithProvider;
