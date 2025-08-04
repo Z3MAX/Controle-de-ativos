@@ -199,6 +199,50 @@ const databaseService = {
       }
     },
 
+    async update(id, updates, userId) {
+      try {
+        const sql = await databaseService.getConnection();
+        const result = await sql`
+          UPDATE floors 
+          SET name = ${updates.name}, 
+              description = ${updates.description || null},
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = ${id} AND user_id = ${userId}
+          RETURNING *
+        `;
+        return { success: true, data: result[0] };
+      } catch (error) {
+        console.error('Erro ao atualizar andar:', error);
+        return { success: false, error: error.message };
+      }
+    },
+
+    async delete(id, userId) {
+      try {
+        const sql = await databaseService.getConnection();
+        
+        // Verificar se há ativos vinculados ao andar
+        const assetsCheck = await sql`
+          SELECT COUNT(*) as count FROM assets WHERE floor_id = ${id} AND user_id = ${userId}
+        `;
+        
+        if (parseInt(assetsCheck[0].count) > 0) {
+          return { 
+            success: false, 
+            error: 'Não é possível excluir o andar pois existem ativos vinculados a ele' 
+          };
+        }
+
+        await sql`
+          DELETE FROM floors WHERE id = ${id} AND user_id = ${userId}
+        `;
+        return { success: true };
+      } catch (error) {
+        console.error('Erro ao deletar andar:', error);
+        return { success: false, error: error.message };
+      }
+    },
+
     async getByName(name, userId) {
       try {
         const sql = await databaseService.getConnection();
@@ -227,6 +271,51 @@ const databaseService = {
         return { success: true, data: result[0] };
       } catch (error) {
         console.error('Erro ao criar sala:', error);
+        return { success: false, error: error.message };
+      }
+    },
+
+    async update(id, updates, userId) {
+      try {
+        const sql = await databaseService.getConnection();
+        const result = await sql`
+          UPDATE rooms 
+          SET name = ${updates.name}, 
+              description = ${updates.description || null},
+              floor_id = ${updates.floor_id},
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = ${id} AND user_id = ${userId}
+          RETURNING *
+        `;
+        return { success: true, data: result[0] };
+      } catch (error) {
+        console.error('Erro ao atualizar sala:', error);
+        return { success: false, error: error.message };
+      }
+    },
+
+    async delete(id, userId) {
+      try {
+        const sql = await databaseService.getConnection();
+        
+        // Verificar se há ativos vinculados à sala
+        const assetsCheck = await sql`
+          SELECT COUNT(*) as count FROM assets WHERE room_id = ${id} AND user_id = ${userId}
+        `;
+        
+        if (parseInt(assetsCheck[0].count) > 0) {
+          return { 
+            success: false, 
+            error: 'Não é possível excluir a sala pois existem ativos vinculados a ela' 
+          };
+        }
+
+        await sql`
+          DELETE FROM rooms WHERE id = ${id} AND user_id = ${userId}
+        `;
+        return { success: true };
+      } catch (error) {
+        console.error('Erro ao deletar sala:', error);
         return { success: false, error: error.message };
       }
     }
@@ -1476,6 +1565,8 @@ const AssetControlSystem = () => {
   const [showRoomForm, setShowRoomForm] = useState(false);
   const [showFloorForm, setShowFloorForm] = useState(false);
   const [editingAsset, setEditingAsset] = useState(null);
+  const [editingFloor, setEditingFloor] = useState(null);
+  const [editingRoom, setEditingRoom] = useState(null);
   const [showAssetDetail, setShowAssetDetail] = useState(null);
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -2225,8 +2316,28 @@ const AssetControlSystem = () => {
                             </div>
                           )}
                           
+                          {/* Botões de ação para andares customizados */}
+                          {!isDefaultFloor && (
+                            <div className="absolute top-2 right-2 flex space-x-1">
+                              <button
+                                onClick={() => handleEditFloor(floor)}
+                                className="p-1.5 bg-white/80 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors shadow-sm"
+                                title="Editar andar"
+                              >
+                                <Icons.Edit />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteFloor(floor)}
+                                className="p-1.5 bg-white/80 hover:bg-red-100 text-red-600 rounded-lg transition-colors shadow-sm"
+                                title="Excluir andar"
+                              >
+                                <Icons.Trash2 />
+                              </button>
+                            </div>
+                          )}
+                          
                           <div className="flex items-start justify-between mb-4">
-                            <div>
+                            <div className="pr-16">
                               <h4 className={`text-lg font-bold ${
                                 isDefaultFloor ? 'text-blue-900' : 'text-green-900'
                               }`}>
@@ -2259,19 +2370,40 @@ const AssetControlSystem = () => {
                               {floor.rooms.map(room => (
                                 <div key={room.id} className={`bg-white/80 rounded-lg p-3 border ${
                                   isDefaultFloor ? 'border-blue-100' : 'border-green-100'
-                                }`}>
-                                  <p className={`font-medium ${
-                                    isDefaultFloor ? 'text-blue-900' : 'text-green-900'
-                                  }`}>
-                                    {room.name}
-                                  </p>
-                                  {room.description && (
-                                    <p className={`text-xs mt-1 ${
-                                      isDefaultFloor ? 'text-blue-600' : 'text-green-600'
+                                } relative group`}>
+                                  
+                                  {/* Botões de ação para salas */}
+                                  <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                      onClick={() => handleEditRoom(room)}
+                                      className="p-1 bg-white hover:bg-blue-100 text-blue-600 rounded transition-colors shadow-sm text-xs"
+                                      title="Editar sala"
+                                    >
+                                      <Icons.Edit />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteRoom(room)}
+                                      className="p-1 bg-white hover:bg-red-100 text-red-600 rounded transition-colors shadow-sm text-xs"
+                                      title="Excluir sala"
+                                    >
+                                      <Icons.Trash2 />
+                                    </button>
+                                  </div>
+                                  
+                                  <div className="pr-12">
+                                    <p className={`font-medium ${
+                                      isDefaultFloor ? 'text-blue-900' : 'text-green-900'
                                     }`}>
-                                      {room.description}
+                                      {room.name}
                                     </p>
-                                  )}
+                                    {room.description && (
+                                      <p className={`text-xs mt-1 ${
+                                        isDefaultFloor ? 'text-blue-600' : 'text-green-600'
+                                      }`}>
+                                        {room.description}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -2331,8 +2463,8 @@ const AssetControlSystem = () => {
         <RoomFormModal
           showRoomForm={showRoomForm}
           setShowRoomForm={setShowRoomForm}
-          editingRoom={null}
-          setEditingRoom={() => {}}
+          editingRoom={editingRoom}
+          setEditingRoom={setEditingRoom}
           roomForm={roomForm}
           setRoomForm={setRoomForm}
           handleSaveRoom={handleSaveRoom}
@@ -2347,6 +2479,8 @@ const AssetControlSystem = () => {
         <FloorFormModal
           showFloorForm={showFloorForm}
           setShowFloorForm={setShowFloorForm}
+          editingFloor={editingFloor}
+          setEditingFloor={setEditingFloor}
           floorForm={floorForm}
           setFloorForm={setFloorForm}
           handleSaveFloor={handleSaveFloor}
@@ -2744,6 +2878,8 @@ const RoomFormModal = ({
 const FloorFormModal = ({ 
   showFloorForm, 
   setShowFloorForm, 
+  editingFloor,
+  setEditingFloor,
   floorForm, 
   setFloorForm, 
   handleSaveFloor, 
@@ -2759,15 +2895,16 @@ const FloorFormModal = ({
           <div className="flex justify-between items-center mb-8">
             <div>
               <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-gray-900 bg-clip-text text-transparent">
-                🏢 Novo Andar
+                {editingFloor ? '✏️ Editar Andar' : '🏢 Novo Andar'}
               </h3>
               <p className="text-gray-600 mt-2 font-medium">
-                Adicione um novo andar ao sistema
+                {editingFloor ? 'Atualize as informações do andar' : 'Adicione um novo andar ao sistema'}
               </p>
             </div>
             <button
               onClick={() => {
                 setShowFloorForm(false);
+                setEditingFloor(null);
                 setFloorForm({ name: '', description: '' });
               }}
               className="p-2 hover:bg-gray-100 rounded-2xl transition-colors"
@@ -2804,6 +2941,7 @@ const FloorFormModal = ({
             <button
               onClick={() => {
                 setShowFloorForm(false);
+                setEditingFloor(null);
                 setFloorForm({ name: '', description: '' });
               }}
               className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all font-bold"
@@ -2821,7 +2959,7 @@ const FloorFormModal = ({
                   <span>Salvando...</span>
                 </div>
               ) : (
-                '💾 Salvar Andar'
+                editingFloor ? '✅ Atualizar Andar' : '💾 Salvar Andar'
               )}
             </button>
           </div>
