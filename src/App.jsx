@@ -1467,6 +1467,7 @@ const ProfilePage = () => {
 // =================== SISTEMA DE CONTROLE DE ATIVOS PRINCIPAL ===================
 const AssetControlSystem = () => {
   const { user, profile, signOut } = useAuth();
+  // Inicializar com dashboard por padrão (sem perfil)
   const [activeTab, setActiveTab] = useState('dashboard');
   const [floors, setFloors] = useState([]);
   const [assets, setAssets] = useState([]);
@@ -1778,24 +1779,29 @@ const AssetControlSystem = () => {
               </div>
               
               <div className="flex items-center space-x-4">
-                {/* Avatar do usuário */}
-                {profile?.photo ? (
-                  <div className="w-12 h-12 rounded-full overflow-hidden border-3 border-gradient-to-r from-blue-500 to-purple-500 shadow-lg ring-2 ring-white">
-                    <img src={profile.photo} alt="Avatar" className="w-full h-full object-cover" />
-                  </div>
-                ) : (
-                  <div className="w-12 h-12 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center shadow-lg ring-2 ring-white">
-                    <Icons.User />
-                  </div>
-                )}
-                
-                <div className="hidden md:block text-left">
-                  <p className="text-sm font-bold text-gray-900">{profile?.name}</p>
-                  <p className="text-xs text-gray-500">{profile?.email}</p>
-                  {profile?.company && (
-                    <p className="text-xs text-blue-600 font-medium">{profile.company}</p>
+                {/* Avatar do usuário - CLICÁVEL */}
+                <button
+                  onClick={() => setActiveTab('profile')}
+                  className="group flex items-center space-x-3 hover:bg-white/10 rounded-xl p-2 transition-all"
+                >
+                  {profile?.photo ? (
+                    <div className="w-12 h-12 rounded-full overflow-hidden border-3 border-gradient-to-r from-blue-500 to-purple-500 shadow-lg ring-2 ring-white group-hover:ring-blue-200 transition-all">
+                      <img src={profile.photo} alt="Avatar" className="w-full h-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="w-12 h-12 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center shadow-lg ring-2 ring-white group-hover:ring-blue-200 transition-all">
+                      <Icons.User />
+                    </div>
                   )}
-                </div>
+                  
+                  <div className="hidden md:block text-left">
+                    <p className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{profile?.name}</p>
+                    <p className="text-xs text-gray-500">{profile?.email}</p>
+                    {profile?.company && (
+                      <p className="text-xs text-blue-600 font-medium">{profile.company}</p>
+                    )}
+                  </div>
+                </button>
                 
                 <button
                   onClick={handleLogout}
@@ -1815,8 +1821,7 @@ const AssetControlSystem = () => {
               {[
                 { id: 'dashboard', label: 'Dashboard', icon: Icons.BarChart3, gradient: 'from-blue-500 to-cyan-500' },
                 { id: 'assets', label: 'Ativos', icon: Icons.Package, gradient: 'from-purple-500 to-pink-500' },
-                { id: 'locations', label: 'Localizações', icon: Icons.Building, gradient: 'from-green-500 to-emerald-500' },
-                { id: 'profile', label: 'Perfil', icon: Icons.User, gradient: 'from-orange-500 to-red-500' }
+                { id: 'locations', label: 'Localizações', icon: Icons.Building, gradient: 'from-green-500 to-emerald-500' }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -1845,7 +1850,30 @@ const AssetControlSystem = () => {
 
         {/* Conteúdo Principal */}
         <div className="max-w-7xl mx-auto px-4 py-8">
-          {activeTab === 'profile' && <ProfilePage />}
+          {/* Perfil só aparece quando clicado */}
+          {activeTab === 'profile' && (
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => setActiveTab('dashboard')}
+                    className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-bold transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    <span>Voltar ao Dashboard</span>
+                  </button>
+                </div>
+                
+                <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-4 py-2 rounded-full text-sm font-bold">
+                  👤 Perfil do Usuário
+                </div>
+              </div>
+              
+              <ProfilePage />
+            </div>
+          )}
           
           {activeTab === 'dashboard' && (
             <div className="space-y-8">
