@@ -1116,10 +1116,13 @@ const AuthModal = ({ isOpen, onClose }) => {
           return;
         }
 
+        console.log('Tentando fazer login com:', formData.email);
         result = await signIn(formData.email.trim(), formData.password);
+        console.log('Resultado do login:', result);
         
         // Tratamento específico de erros de login
         if (!result.success) {
+          console.log('Erro no login:', result.error);
           if (result.error.includes('E-mail não encontrado')) {
             setMessage('❌ E-mail não cadastrado no sistema');
           } else if (result.error.includes('Senha incorreta')) {
@@ -1185,10 +1188,7 @@ const AuthModal = ({ isOpen, onClose }) => {
     } catch (error) {
       console.error('Erro inesperado:', error);
       setMessage('❌ Erro inesperado. Tente novamente em alguns instantes');
-    } finally {
-      if (loading) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   };
 
@@ -1239,6 +1239,23 @@ const AuthModal = ({ isOpen, onClose }) => {
                 : 'bg-red-50 text-red-800 border border-red-200'
             }`}>
               {message}
+            </div>
+          )}
+
+          {message && (
+            <div className={`p-4 rounded-xl mb-6 text-sm font-medium border transition-all ${
+              message.includes('✅') 
+                ? 'bg-green-50 text-green-800 border-green-200 shadow-lg' 
+                : 'bg-red-50 text-red-800 border-red-200 shadow-lg animate-pulse'
+            }`}>
+              <div className="flex items-center">
+                {message.includes('✅') ? (
+                  <Icons.CheckCircle />
+                ) : (
+                  <Icons.AlertCircle />
+                )}
+                <span className="ml-2">{message}</span>
+              </div>
             </div>
           )}
 
