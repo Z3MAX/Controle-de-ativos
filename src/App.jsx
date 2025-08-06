@@ -946,7 +946,8 @@ const Icons = {
 const AuthModal = ({ isOpen, onClose }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState(''); // State separado para erros
+  const [successMessage, setSuccessMessage] = useState(''); // State separado para sucesso
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
   const [userPhoto, setUserPhoto] = useState(null);
   const { signIn, signUp, dbReady } = useAuth();
@@ -959,10 +960,36 @@ const AuthModal = ({ isOpen, onClose }) => {
     company: ''
   });
 
+  // Limpar mensagens quando trocar modo ou abrir modal
+  useEffect(() => {
+    if (isOpen) {
+      setErrorMessage('');
+      setSuccessMessage('');
+    }
+  }, [isOpen]);
+
+  // Função para limpar todas as mensagens
+  const clearMessages = () => {
+    setErrorMessage('');
+    setSuccessMessage('');
+  };
+
+  // Função para mostrar erro
+  const showError = (message) => {
+    clearMessages();
+    setErrorMessage(message);
+  };
+
+  // Função para mostrar sucesso
+  const showSuccess = (message) => {
+    clearMessages();
+    setSuccessMessage(message);
+  };
+
   // Limpar mensagem apenas quando trocar entre login/registro
   const handleToggleMode = () => {
     setIsLogin(!isLogin);
-    setMessage('');
+    clearMessages();
     setFormData({ email: '', password: '', name: '', company: '' });
     setUserPhoto(null);
   };
@@ -1073,7 +1100,7 @@ const AuthModal = ({ isOpen, onClose }) => {
       setShowPhotoOptions(false);
     } catch (error) {
       console.error('Erro ao capturar foto:', error);
-      setMessage('❌ Erro ao acessar câmera');
+      showError('❌ Erro ao acessar câmera');
     }
   };
 
@@ -1090,7 +1117,7 @@ const AuthModal = ({ isOpen, onClose }) => {
         setUserPhoto(resizedPhoto);
       } catch (error) {
         console.error('Erro ao processar foto:', error);
-        setMessage('❌ Erro ao processar foto');
+        showError('❌ Erro ao processar foto');
       }
     }
   };
@@ -1099,10 +1126,12 @@ const AuthModal = ({ isOpen, onClose }) => {
     e.preventDefault();
     
     if (!dbReady) {
-      setMessage('❌ Banco de dados não está disponível');
+      showError('❌ Banco de dados não está disponível');
       return;
     }
 
+    // Limpar mensagens e iniciar loading
+    clearMessages();
     setLoading(true);
 
     try {
@@ -1111,26 +1140,28 @@ const AuthModal = ({ isOpen, onClose }) => {
       if (isLogin) {
         // LOGIN
         if (!formData.email.trim()) {
-          setMessage('❌ Por favor, digite seu e-mail');
+          showError('❌ Por favor, digite seu e-mail');
           setLoading(false);
           return;
         }
         
         if (!formData.password.trim()) {
-          setMessage('❌ Por favor, digite sua senha');
+          showError('❌ Por favor, digite sua senha');
           setLoading(false);
           return;
         }
 
+        console.log('Fazendo login...');
         result = await signIn(formData.email.trim(), formData.password);
+        console.log('Resultado:', result);
         
         if (!result.success) {
           if (result.error.includes('E-mail não encontrado')) {
-            setMessage('❌ E-mail não cadastrado no sistema');
+            showError('❌ E-mail não cadastrado no sistema');
           } else if (result.error.includes('Senha incorreta')) {
-            setMessage('❌ Senha incorreta. Tente novamente');
+            showError('❌ Senha incorreta. Tente novamente');
           } else {
-            setMessage(`❌ ${result.error}`);
+            showError(`❌ ${result.error}`);
           }
           setLoading(false);
           return;
@@ -1138,19 +1169,19 @@ const AuthModal = ({ isOpen, onClose }) => {
       } else {
         // REGISTRO
         if (!formData.name.trim()) {
-          setMessage('❌ Por favor, digite seu nome');
+          showError('❌ Por favor, digite seu nome');
           setLoading(false);
           return;
         }
         
         if (!formData.email.trim()) {
-          setMessage('❌ Por favor, digite seu e-mail');
+          showError('❌ Por favor, digite seu e-mail');
           setLoading(false);
           return;
         }
         
         if (!formData.password.trim()) {
-          setMessage('❌ Por favor, digite uma senha');
+          showError('❌ Por favor, digite uma senha');
           setLoading(false);
           return;
         }
@@ -1159,13 +1190,13 @@ const AuthModal = ({ isOpen, onClose }) => {
         
         if (!result.success) {
           if (result.error.includes('já está em uso') || result.error.includes('já existe')) {
-            setMessage('❌ Este e-mail já possui uma conta cadastrada');
+            showError('❌ Este e-mail já possui uma conta cadastrada');
           } else if (result.error.includes('E-mail inválido')) {
-            setMessage('❌ Por favor, digite um e-mail válido');
+            showError('❌ Por favor, digite um e-mail válido');
           } else if (result.error.includes('senha deve ter pelo menos')) {
-            setMessage('❌ A senha deve ter pelo menos 6 caracteres');
+            showError('❌ A senha deve ter pelo menos 6 caracteres');
           } else {
-            setMessage(`❌ ${result.error}`);
+            showError(`❌ ${result.error}`);
           }
           setLoading(false);
           return;
@@ -1174,20 +1205,20 @@ const AuthModal = ({ isOpen, onClose }) => {
 
       // SUCESSO
       if (result.success) {
-        setMessage(`✅ ${isLogin ? 'Login realizado com sucesso!' : 'Conta criada com sucesso!'}`);
+        showSuccess(`✅ ${isLogin ? 'Login realizado com sucesso!' : 'Conta criada com sucesso!'}`);
         setLoading(false);
         
         setTimeout(() => {
           onClose();
           setFormData({ email: '', password: '', name: '', company: '' });
           setUserPhoto(null);
-          setMessage('');
+          clearMessages();
         }, 1500);
       }
 
     } catch (error) {
       console.error('Erro:', error);
-      setMessage('❌ Erro inesperado. Tente novamente');
+      showError('❌ Erro inesperado. Tente novamente');
       setLoading(false);
     }
   };
@@ -1242,21 +1273,22 @@ const AuthModal = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {/* MENSAGEM SEMPRE VISÍVEL - POSIÇÃO FIXA */}
-          <div className="mb-6" style={{ minHeight: '60px' }}>
-            {message && (
-              <div className={`p-4 rounded-xl text-sm font-bold border shadow-lg ${
-                message.includes('✅') 
-                  ? 'bg-green-50 text-green-800 border-green-200' 
-                  : 'bg-red-50 text-red-800 border-red-200'
-              }`}>
+          {/* MENSAGEM DE ERRO/SUCESSO - SEMPRE VISÍVEL */}
+          <div className="mb-6" style={{ minHeight: '70px' }}>
+            {errorMessage && (
+              <div className="p-4 rounded-xl text-sm font-bold border shadow-lg bg-red-50 text-red-800 border-red-200">
                 <div className="flex items-center">
-                  {message.includes('✅') ? (
-                    <Icons.CheckCircle />
-                  ) : (
-                    <Icons.AlertCircle />
-                  )}
-                  <span className="ml-2">{message}</span>
+                  <Icons.AlertCircle />
+                  <span className="ml-2">{errorMessage}</span>
+                </div>
+              </div>
+            )}
+            
+            {successMessage && (
+              <div className="p-4 rounded-xl text-sm font-bold border shadow-lg bg-green-50 text-green-800 border-green-200">
+                <div className="flex items-center">
+                  <Icons.CheckCircle />
+                  <span className="ml-2">{successMessage}</span>
                 </div>
               </div>
             )}
@@ -1317,12 +1349,12 @@ const AuthModal = ({ isOpen, onClose }) => {
                     onChange={(e) => {
                       setFormData({...formData, name: e.target.value});
                       // Limpar mensagem de erro quando usuário começar a digitar
-                      if (message && message.includes('nome')) {
-                        setMessage('');
+                      if (errorMessage && errorMessage.includes('nome')) {
+                        clearMessages();
                       }
                     }}
                     className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
-                      message && message.includes('nome')
+                      errorMessage && errorMessage.includes('nome')
                         ? 'border-red-300 focus:ring-red-500 bg-red-50' 
                         : 'border-gray-300 focus:ring-blue-500'
                     }`}
@@ -1356,12 +1388,12 @@ const AuthModal = ({ isOpen, onClose }) => {
                 onChange={(e) => {
                   setFormData({...formData, email: e.target.value});
                   // Limpar mensagem de erro quando usuário começar a digitar
-                  if (message && message.includes('E-mail')) {
-                    setMessage('');
+                  if (errorMessage && errorMessage.includes('E-mail')) {
+                    clearMessages();
                   }
                 }}
                 className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
-                  message && (message.includes('E-mail') || message.includes('não cadastrado')) 
+                  errorMessage && (errorMessage.includes('E-mail') || errorMessage.includes('não cadastrado')) 
                     ? 'border-red-300 focus:ring-red-500 bg-red-50' 
                     : 'border-gray-300 focus:ring-blue-500'
                 }`}
@@ -1381,12 +1413,12 @@ const AuthModal = ({ isOpen, onClose }) => {
                 onChange={(e) => {
                   setFormData({...formData, password: e.target.value});
                   // Limpar mensagem de erro quando usuário começar a digitar
-                  if (message && (message.includes('Senha') || message.includes('senha'))) {
-                    setMessage('');
+                  if (errorMessage && (errorMessage.includes('Senha') || errorMessage.includes('senha'))) {
+                    clearMessages();
                   }
                 }}
                 className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
-                  message && (message.includes('Senha') || message.includes('senha'))
+                  errorMessage && (errorMessage.includes('Senha') || errorMessage.includes('senha'))
                     ? 'border-red-300 focus:ring-red-500 bg-red-50' 
                     : 'border-gray-300 focus:ring-blue-500'
                 }`}
