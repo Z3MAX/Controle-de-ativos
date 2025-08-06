@@ -949,7 +949,6 @@ const AuthModal = ({ isOpen, onClose }) => {
   const [message, setMessage] = useState('');
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
   const [userPhoto, setUserPhoto] = useState(null);
-  const [modalJustOpened, setModalJustOpened] = useState(false);
   const { signIn, signUp, dbReady } = useAuth();
   const fileInputRef = useRef(null);
 
@@ -960,24 +959,13 @@ const AuthModal = ({ isOpen, onClose }) => {
     company: ''
   });
 
-  // Debug: Log sempre que message muda
-  useEffect(() => {
-    console.log('🔴 Message state changed:', message);
-  }, [message]);
-
-  // Controlar limpeza de mensagens apenas quando modal realmente abre
-  useEffect(() => {
-    console.log('🔴 Modal isOpen:', isOpen);
-    if (isOpen && !modalJustOpened) {
-      // Modal acabou de abrir - marcar flag e limpar mensagem
-      setModalJustOpened(true);
-      setMessage('');
-      console.log('🔴 Cleared message on modal open');
-    } else if (!isOpen) {
-      // Modal fechou - reset flag
-      setModalJustOpened(false);
-    }
-  }, [isOpen]);
+  // Limpar mensagem apenas quando trocar entre login/registro
+  const handleToggleMode = () => {
+    setIsLogin(!isLogin);
+    setMessage('');
+    setFormData({ email: '', password: '', name: '', company: '' });
+    setUserPhoto(null);
+  };
 
   const PhotoUtils = {
     fileToBase64: (file) => {
@@ -1110,73 +1098,45 @@ const AuthModal = ({ isOpen, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    console.log('🔴 Form submitted, isLogin:', isLogin);
-    console.log('🔴 Form data:', formData);
-    
     if (!dbReady) {
-      console.log('🔴 DB not ready');
       setMessage('❌ Banco de dados não está disponível');
       return;
     }
 
-    // Marcar que não deve mais limpar mensagens (modal está em uso)
-    setModalJustOpened(false);
-    
-    // Limpar mensagem anterior
-    console.log('🔴 Clearing previous message...');
-    setMessage('');
     setLoading(true);
-    
-    console.log('🔴 Starting login process...');
 
     try {
       let result;
       
       if (isLogin) {
-        // Validações básicas antes de tentar login
+        // LOGIN
         if (!formData.email.trim()) {
-          console.log('🔴 Email empty');
           setMessage('❌ Por favor, digite seu e-mail');
           setLoading(false);
           return;
         }
         
         if (!formData.password.trim()) {
-          console.log('🔴 Password empty');
           setMessage('❌ Por favor, digite sua senha');
           setLoading(false);
           return;
         }
 
-        console.log('🔴 Calling signIn...');
         result = await signIn(formData.email.trim(), formData.password);
-        console.log('🔴 SignIn result:', result);
         
-        // Tratamento específico de erros de login
         if (!result.success) {
-          console.log('🔴 Login failed, setting error message...');
-          let errorMessage;
           if (result.error.includes('E-mail não encontrado')) {
-            errorMessage = '❌ E-mail não cadastrado no sistema';
+            setMessage('❌ E-mail não cadastrado no sistema');
           } else if (result.error.includes('Senha incorreta')) {
-            errorMessage = '❌ Senha incorreta. Tente novamente';
+            setMessage('❌ Senha incorreta. Tente novamente');
           } else {
-            errorMessage = `❌ ${result.error}`;
+            setMessage(`❌ ${result.error}`);
           }
-          
-          console.log('🔴 About to set error message:', errorMessage);
-          
-          // Forçar re-render com timeout para garantir que mensagem apareça
-          setTimeout(() => {
-            setMessage(errorMessage);
-            console.log('🔴 Error message set with timeout');
-          }, 50);
-          
           setLoading(false);
           return;
         }
       } else {
-        // Código do registro...
+        // REGISTRO
         if (!formData.name.trim()) {
           setMessage('❌ Por favor, digite seu nome');
           setLoading(false);
@@ -1198,28 +1158,22 @@ const AuthModal = ({ isOpen, onClose }) => {
         result = await signUp(formData.email.trim(), formData.password, formData.name.trim(), formData.company.trim(), userPhoto);
         
         if (!result.success) {
-          let errorMessage;
           if (result.error.includes('já está em uso') || result.error.includes('já existe')) {
-            errorMessage = '❌ Este e-mail já possui uma conta cadastrada';
+            setMessage('❌ Este e-mail já possui uma conta cadastrada');
           } else if (result.error.includes('E-mail inválido')) {
-            errorMessage = '❌ Por favor, digite um e-mail válido';
+            setMessage('❌ Por favor, digite um e-mail válido');
           } else if (result.error.includes('senha deve ter pelo menos')) {
-            errorMessage = '❌ A senha deve ter pelo menos 6 caracteres';
+            setMessage('❌ A senha deve ter pelo menos 6 caracteres');
           } else {
-            errorMessage = `❌ ${result.error}`;
+            setMessage(`❌ ${result.error}`);
           }
-          
-          setTimeout(() => {
-            setMessage(errorMessage);
-          }, 50);
           setLoading(false);
           return;
         }
       }
 
-      // Success
+      // SUCESSO
       if (result.success) {
-        console.log('🔴 Login/signup successful');
         setMessage(`✅ ${isLogin ? 'Login realizado com sucesso!' : 'Conta criada com sucesso!'}`);
         setLoading(false);
         
@@ -1232,10 +1186,8 @@ const AuthModal = ({ isOpen, onClose }) => {
       }
 
     } catch (error) {
-      console.error('🔴 Unexpected error:', error);
-      setTimeout(() => {
-        setMessage('❌ Erro inesperado. Tente novamente em alguns instantes');
-      }, 50);
+      console.error('Erro:', error);
+      setMessage('❌ Erro inesperado. Tente novamente');
       setLoading(false);
     }
   };
@@ -1290,30 +1242,24 @@ const AuthModal = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {message && (
-            <div className={`p-4 rounded-xl mb-6 text-sm font-medium border transition-all animate-bounce ${
-              message.includes('✅') 
-                ? 'bg-green-50 text-green-800 border-green-200 shadow-xl' 
-                : 'bg-red-50 text-red-800 border-red-200 shadow-xl'
-            }`} style={{
-              minHeight: '60px',
-              display: 'flex',
-              alignItems: 'center'
-            }}>
-              <div className="flex items-center w-full">
-                {message.includes('✅') ? (
-                  <Icons.CheckCircle />
-                ) : (
-                  <Icons.AlertCircle />
-                )}
-                <span className="ml-2 font-bold text-base">{message}</span>
+          {/* MENSAGEM SEMPRE VISÍVEL - POSIÇÃO FIXA */}
+          <div className="mb-6" style={{ minHeight: '60px' }}>
+            {message && (
+              <div className={`p-4 rounded-xl text-sm font-bold border shadow-lg ${
+                message.includes('✅') 
+                  ? 'bg-green-50 text-green-800 border-green-200' 
+                  : 'bg-red-50 text-red-800 border-red-200'
+              }`}>
+                <div className="flex items-center">
+                  {message.includes('✅') ? (
+                    <Icons.CheckCircle />
+                  ) : (
+                    <Icons.AlertCircle />
+                  )}
+                  <span className="ml-2">{message}</span>
+                </div>
               </div>
-            </div>
-          )}
-
-          {/* DEBUG: Sempre mostrar o estado da mensagem */}
-          <div className="mb-4 p-2 bg-yellow-100 border border-yellow-300 rounded text-xs">
-            <strong>DEBUG:</strong> message = "{message}" | loading = {loading.toString()} | dbReady = {dbReady.toString()}
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
