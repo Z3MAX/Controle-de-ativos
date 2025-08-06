@@ -2158,6 +2158,35 @@ const AssetControlSystem = () => {
     }
   };
 
+  const handleEditRoom = (room) => {
+    setEditingRoom(room);
+    setRoomForm({
+      name: room.name,
+      description: room.description || '',
+      floor_id: room.floor_id
+    });
+    setShowRoomForm(true);
+  };
+
+  const handleDeleteRoom = async (room) => {
+    if (confirm(`Tem certeza que deseja excluir a sala "${room.name}"?`)) {
+      try {
+        setIsLoading(true);
+        const result = await databaseService.rooms.delete(room.id, user.id);
+        
+        if (result.success) {
+          await loadData();
+        } else {
+          alert('Erro ao excluir sala: ' + result.error);
+        }
+      } catch (error) {
+        alert('Erro ao excluir sala: ' + error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
   const handleSaveRoom = async () => {
     if (!roomForm.name || !roomForm.floor_id) {
       alert('Nome e andar são obrigatórios');
@@ -2166,17 +2195,24 @@ const AssetControlSystem = () => {
 
     try {
       setIsLoading(true);
-      const result = await databaseService.rooms.create(roomForm, user.id);
+      let result;
+
+      if (editingRoom) {
+        result = await databaseService.rooms.update(editingRoom.id, roomForm, user.id);
+      } else {
+        result = await databaseService.rooms.create(roomForm, user.id);
+      }
       
       if (result.success) {
         await loadData();
         setRoomForm({ name: '', description: '', floor_id: '' });
         setShowRoomForm(false);
+        setEditingRoom(null);
       } else {
-        alert('Erro ao criar sala: ' + result.error);
+        alert('Erro ao salvar sala: ' + result.error);
       }
     } catch (error) {
-      alert('Erro ao criar sala: ' + error.message);
+      alert('Erro ao salvar sala: ' + error.message);
     } finally {
       setIsLoading(false);
     }
@@ -2789,6 +2825,25 @@ const AssetControlSystem = () => {
                                 <div key={room.id} className={`bg-white/80 rounded-lg p-3 border ${
                                   isDefaultFloor ? 'border-blue-100' : 'border-green-100'
                                 } relative group`}>
+                                  
+                                  {/* Botões de ação para salas */}
+                                  <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                      onClick={() => handleEditRoom(room)}
+                                      className="p-1 bg-white hover:bg-blue-100 text-blue-600 rounded transition-colors shadow-sm text-xs"
+                                      title="Editar sala"
+                                    >
+                                      <Icons.Edit />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteRoom(room)}
+                                      className="p-1 bg-white hover:bg-red-100 text-red-600 rounded transition-colors shadow-sm text-xs"
+                                      title="Excluir sala"
+                                    >
+                                      <Icons.Trash2 />
+                                    </button>
+                                  </div>
+                                  
                                   <div className="pr-12">
                                     <p className={`font-medium ${
                                       isDefaultFloor ? 'text-blue-900' : 'text-green-900'
