@@ -959,6 +959,21 @@ const AuthModal = ({ isOpen, onClose }) => {
     company: ''
   });
 
+  // Debug: Log sempre que message muda
+  useEffect(() => {
+    console.log('🔴 Message state changed:', message);
+  }, [message]);
+
+  // Debug: Log sempre que modal abre/fecha
+  useEffect(() => {
+    console.log('🔴 Modal isOpen:', isOpen);
+    if (isOpen) {
+      // Limpar mensagens quando modal abre
+      setMessage('');
+      console.log('🔴 Cleared message on modal open');
+    }
+  }, [isOpen]);
+
   const PhotoUtils = {
     fileToBase64: (file) => {
       return new Promise((resolve, reject) => {
@@ -1090,106 +1105,117 @@ const AuthModal = ({ isOpen, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    console.log('🔴 Form submitted, isLogin:', isLogin);
+    console.log('🔴 Form data:', formData);
+    
     if (!dbReady) {
+      console.log('🔴 DB not ready');
       setMessage('❌ Banco de dados não está disponível');
       return;
     }
 
-    // Limpar mensagem anterior
+    // Limpar mensagem anterior e força re-render
+    console.log('🔴 Clearing previous message...');
     setMessage('');
-    setLoading(true);
+    
+    // Pequeno delay para garantir que o estado foi limpo
+    setTimeout(async () => {
+      setLoading(true);
+      console.log('🔴 Starting login process...');
 
-    try {
-      let result;
-      
-      if (isLogin) {
-        // Validações básicas antes de tentar login
-        if (!formData.email.trim()) {
-          setMessage('❌ Por favor, digite seu e-mail');
-          setLoading(false);
-          return;
-        }
+      try {
+        let result;
         
-        if (!formData.password.trim()) {
-          setMessage('❌ Por favor, digite sua senha');
-          setLoading(false);
-          return;
-        }
-
-        console.log('Tentando fazer login com:', formData.email);
-        result = await signIn(formData.email.trim(), formData.password);
-        console.log('Resultado do login:', result);
-        
-        // Tratamento específico de erros de login
-        if (!result.success) {
-          console.log('Erro no login:', result.error);
-          if (result.error.includes('E-mail não encontrado')) {
-            setMessage('❌ E-mail não cadastrado no sistema');
-          } else if (result.error.includes('Senha incorreta')) {
-            setMessage('❌ Senha incorreta. Tente novamente');
-          } else {
-            setMessage(`❌ ${result.error}`);
+        if (isLogin) {
+          // Validações básicas antes de tentar login
+          if (!formData.email.trim()) {
+            console.log('🔴 Email empty');
+            setMessage('❌ Por favor, digite seu e-mail');
+            setLoading(false);
+            return;
           }
-          setLoading(false);
-          return;
-        }
-      } else {
-        // Validações para registro
-        if (!formData.name.trim()) {
-          setMessage('❌ Por favor, digite seu nome');
-          setLoading(false);
-          return;
-        }
-        
-        if (!formData.email.trim()) {
-          setMessage('❌ Por favor, digite seu e-mail');
-          setLoading(false);
-          return;
-        }
-        
-        if (!formData.password.trim()) {
-          setMessage('❌ Por favor, digite uma senha');
-          setLoading(false);
-          return;
-        }
-
-        result = await signUp(formData.email.trim(), formData.password, formData.name.trim(), formData.company.trim(), userPhoto);
-        
-        // Tratamento específico de erros de registro
-        if (!result.success) {
-          if (result.error.includes('já está em uso') || result.error.includes('já existe')) {
-            setMessage('❌ Este e-mail já possui uma conta cadastrada');
-          } else if (result.error.includes('E-mail inválido')) {
-            setMessage('❌ Por favor, digite um e-mail válido');
-          } else if (result.error.includes('senha deve ter pelo menos')) {
-            setMessage('❌ A senha deve ter pelo menos 6 caracteres');
-          } else {
-            setMessage(`❌ ${result.error}`);
+          
+          if (!formData.password.trim()) {
+            console.log('🔴 Password empty');
+            setMessage('❌ Por favor, digite sua senha');
+            setLoading(false);
+            return;
           }
-          setLoading(false);
-          return;
+
+          console.log('🔴 Calling signIn...');
+          result = await signIn(formData.email.trim(), formData.password);
+          console.log('🔴 SignIn result:', result);
+          
+          // Tratamento específico de erros de login
+          if (!result.success) {
+            console.log('🔴 Login failed, setting error message...');
+            if (result.error.includes('E-mail não encontrado')) {
+              setMessage('❌ E-mail não cadastrado no sistema');
+            } else if (result.error.includes('Senha incorreta')) {
+              setMessage('❌ Senha incorreta. Tente novamente');
+            } else {
+              setMessage(`❌ ${result.error}`);
+            }
+            console.log('🔴 Error message set');
+            setLoading(false);
+            return;
+          }
+        } else {
+          // Código do registro permanece igual...
+          if (!formData.name.trim()) {
+            setMessage('❌ Por favor, digite seu nome');
+            setLoading(false);
+            return;
+          }
+          
+          if (!formData.email.trim()) {
+            setMessage('❌ Por favor, digite seu e-mail');
+            setLoading(false);
+            return;
+          }
+          
+          if (!formData.password.trim()) {
+            setMessage('❌ Por favor, digite uma senha');
+            setLoading(false);
+            return;
+          }
+
+          result = await signUp(formData.email.trim(), formData.password, formData.name.trim(), formData.company.trim(), userPhoto);
+          
+          if (!result.success) {
+            if (result.error.includes('já está em uso') || result.error.includes('já existe')) {
+              setMessage('❌ Este e-mail já possui uma conta cadastrada');
+            } else if (result.error.includes('E-mail inválido')) {
+              setMessage('❌ Por favor, digite um e-mail válido');
+            } else if (result.error.includes('senha deve ter pelo menos')) {
+              setMessage('❌ A senha deve ter pelo menos 6 caracteres');
+            } else {
+              setMessage(`❌ ${result.error}`);
+            }
+            setLoading(false);
+            return;
+          }
         }
-      }
 
-      // Success - login ou registro bem-sucedido
-      if (result.success) {
-        setMessage(`✅ ${isLogin ? 'Login realizado com sucesso!' : 'Conta criada com sucesso!'}`);
-        
-        // Aguardar um pouco antes de fechar para mostrar mensagem de sucesso
-        setTimeout(() => {
-          onClose();
-          // Limpar formulário após fechar
-          setFormData({ email: '', password: '', name: '', company: '' });
-          setUserPhoto(null);
-          setMessage('');
-        }, 1500);
-      }
+        // Success
+        if (result.success) {
+          console.log('🔴 Login/signup successful');
+          setMessage(`✅ ${isLogin ? 'Login realizado com sucesso!' : 'Conta criada com sucesso!'}`);
+          
+          setTimeout(() => {
+            onClose();
+            setFormData({ email: '', password: '', name: '', company: '' });
+            setUserPhoto(null);
+            setMessage('');
+          }, 1500);
+        }
 
-    } catch (error) {
-      console.error('Erro inesperado:', error);
-      setMessage('❌ Erro inesperado. Tente novamente em alguns instantes');
-      setLoading(false);
-    }
+      } catch (error) {
+        console.error('🔴 Unexpected error:', error);
+        setMessage('❌ Erro inesperado. Tente novamente em alguns instantes');
+        setLoading(false);
+      }
+    }, 100); // Delay de 100ms para garantir limpeza do estado
   };
 
   if (!isOpen) return null;
@@ -1243,21 +1269,30 @@ const AuthModal = ({ isOpen, onClose }) => {
           )}
 
           {message && (
-            <div className={`p-4 rounded-xl mb-6 text-sm font-medium border transition-all ${
+            <div className={`p-4 rounded-xl mb-6 text-sm font-medium border transition-all animate-bounce ${
               message.includes('✅') 
-                ? 'bg-green-50 text-green-800 border-green-200 shadow-lg' 
-                : 'bg-red-50 text-red-800 border-red-200 shadow-lg animate-pulse'
-            }`}>
-              <div className="flex items-center">
+                ? 'bg-green-50 text-green-800 border-green-200 shadow-xl' 
+                : 'bg-red-50 text-red-800 border-red-200 shadow-xl'
+            }`} style={{
+              minHeight: '60px',
+              display: 'flex',
+              alignItems: 'center'
+            }}>
+              <div className="flex items-center w-full">
                 {message.includes('✅') ? (
                   <Icons.CheckCircle />
                 ) : (
                   <Icons.AlertCircle />
                 )}
-                <span className="ml-2">{message}</span>
+                <span className="ml-2 font-bold text-base">{message}</span>
               </div>
             </div>
           )}
+
+          {/* DEBUG: Sempre mostrar o estado da mensagem */}
+          <div className="mb-4 p-2 bg-yellow-100 border border-yellow-300 rounded text-xs">
+            <strong>DEBUG:</strong> message = "{message}" | loading = {loading.toString()} | dbReady = {dbReady.toString()}
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
