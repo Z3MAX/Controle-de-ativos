@@ -537,18 +537,43 @@ const useAuth = () => {
 const CryptoUtils = {
   // Gerar hash da senha usando Web Crypto API
   async hashPassword(password) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password);
-    const hash = await crypto.subtle.digest('SHA-256', data);
-    return Array.from(new Uint8Array(hash))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
+    try {
+      console.log('🔐 Gerando hash para senha...');
+      const encoder = new TextEncoder();
+      const data = encoder.encode(password);
+      const hash = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hash));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      console.log('✅ Hash gerado com sucesso');
+      return hashHex;
+    } catch (error) {
+      console.error('❌ Erro ao gerar hash:', error);
+      throw error;
+    }
   },
 
   // Verificar se a senha corresponde ao hash
   async verifyPassword(password, hash) {
-    const passwordHash = await this.hashPassword(password);
-    return passwordHash === hash;
+    try {
+      console.log('🔍 Verificando senha...');
+      console.log('📝 Hash armazenado:', hash ? 'presente' : 'ausente');
+      
+      if (!password || !hash) {
+        console.log('❌ Senha ou hash ausente');
+        return false;
+      }
+      
+      const passwordHash = await this.hashPassword(password);
+      console.log('🔑 Hash da senha digitada gerado');
+      
+      const isValid = passwordHash === hash;
+      console.log('✔️ Comparação de hashes:', isValid ? 'MATCH' : 'NO MATCH');
+      
+      return isValid;
+    } catch (error) {
+      console.error('❌ Erro ao verificar senha:', error);
+      return false;
+    }
   }
 };
 
@@ -582,9 +607,11 @@ const databaseService = {
 
   async initializeDatabase() {
     try {
+      console.log('🏗️ Inicializando estrutura do banco de dados...');
       const sql = await this.getConnection();
 
       // Criar tabela de usuários com senha hash e foto
+      console.log('👥 Criando/verificando tabela users...');
       await sql`
         CREATE TABLE IF NOT EXISTS users (
           id SERIAL PRIMARY KEY,
@@ -598,15 +625,27 @@ const databaseService = {
         )
       `;
 
-      // Verificar se existe coluna password_hash (para migração)
+      // Verificar se existe coluna password_hash (para migração de contas antigas)
       try {
+        console.log('🔐 Verificando coluna password_hash...');
         await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)`;
-        console.log('✅ Coluna password_hash adicionada/verificada');
+        console.log('✅ Coluna password_hash verificada/adicionada');
+        
+        // Verificar estrutura da tabela
+        const tableInfo = await sql`
+          SELECT column_name, data_type, is_nullable 
+          FROM information_schema.columns 
+          WHERE table_name = 'users' AND table_schema = 'public'
+          ORDER BY ordinal_position
+        `;
+        console.log('📋 Estrutura da tabela users:', tableInfo);
+        
       } catch (error) {
-        console.log('ℹ️ Coluna password_hash já existe ou erro na migração:', error);
+        console.log('ℹ️ Erro na migração da coluna password_hash:', error.message);
       }
 
       // Criar tabela de andares
+      console.log('🏢 Criando/verificando tabela floors...');
       await sql`
         CREATE TABLE IF NOT EXISTS floors (
           id SERIAL PRIMARY KEY,
@@ -619,6 +658,7 @@ const databaseService = {
       `;
 
       // Criar tabela de salas
+      console.log('🚪 Criando/verificando tabela rooms...');
       await sql`
         CREATE TABLE IF NOT EXISTS rooms (
           id SERIAL PRIMARY KEY,
@@ -632,6 +672,7 @@ const databaseService = {
       `;
 
       // Criar tabela de ativos
+      console.log('📦 Criando/verificando tabela assets...');
       await sql`
         CREATE TABLE IF NOT EXISTS assets (
           id SERIAL PRIMARY KEY,
@@ -694,35 +735,53 @@ const databaseService = {
 
     async authenticate(email, password) {
       try {
+        console.log('🔐 Iniciando autenticação para:', email);
         const sql = await databaseService.getConnection();
         
         // Buscar usuário com senha hash
         const result = await sql`
           SELECT id, email, name, password_hash, company, photo, created_at, updated_at
           FROM users 
-          WHERE email = ${email} 
+          WHERE LOWER(email) = LOWER(${email}) 
           LIMIT 1
         `;
         
+        console.log('📧 Resultado da busca por email:', result.length);
+        
         if (result.length === 0) {
+          console.log('❌ E-mail não encontrado');
           return { success: false, error: 'E-mail não encontrado. Verifique o endereço digitado.' };
         }
         
         const user = result[0];
+        console.log('👤 Usuário encontrado:', user.email);
+        
+        // Verificar se existe password_hash
+        if (!user.password_hash) {
+          console.log('❌ Password hash não encontrado para o usuário');
+          return { success: false, error: 'Conta não configurada corretamente. Entre em contato com o suporte.' };
+        }
+        
+        console.log('🔑 Verificando senha...');
         
         // Verificar se a senha está correta
         const isValidPassword = await CryptoUtils.verifyPassword(password, user.password_hash);
         
+        console.log('🔓 Senha válida:', isValidPassword);
+        
         if (!isValidPassword) {
+          console.log('❌ Senha incorreta');
           return { success: false, error: 'Senha incorreta. Verifique sua senha e tente novamente.' };
         }
+        
+        console.log('✅ Autenticação bem-sucedida');
         
         // Retornar usuário sem o hash da senha
         const { password_hash, ...userWithoutPassword } = user;
         return { success: true, data: userWithoutPassword };
         
       } catch (error) {
-        console.error('Erro na autenticação:', error);
+        console.error('❌ Erro na autenticação:', error);
         return { success: false, error: 'Erro de conexão. Verifique sua internet e tente novamente.' };
       }
     },
@@ -1222,8 +1281,11 @@ const AuthProvider = ({ children }) => {
   };
 
   const signIn = async (email, password) => {
+    console.log('🚀 Iniciando processo de login...');
+    
     if (!dbReady) {
-      return { success: false, error: 'Banco de dados não disponível' };
+      console.log('❌ Banco não disponível');
+      return { success: false, error: 'Banco de dados não disponível. Tente novamente.' };
     }
 
     try {
@@ -1231,18 +1293,25 @@ const AuthProvider = ({ children }) => {
       
       // Validações básicas
       if (!email || !password) {
+        console.log('❌ Campos obrigatórios ausentes');
         return { success: false, error: 'Por favor, preencha e-mail e senha' };
       }
 
       // Validação de formato de e-mail
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
+        console.log('❌ Formato de e-mail inválido');
         return { success: false, error: 'Formato de e-mail inválido' };
       }
       
+      console.log('📧 Tentando autenticar:', email);
+      
       const result = await databaseService.users.authenticate(email.trim().toLowerCase(), password);
       
+      console.log('📊 Resultado da autenticação:', result.success ? 'SUCESSO' : 'FALHOU');
+      
       if (result.success) {
+        console.log('✅ Login bem-sucedido');
         const userData = result.data;
         setUser(userData);
         setProfile(userData);
@@ -1252,10 +1321,11 @@ const AuthProvider = ({ children }) => {
         
         return { success: true, data: { user: userData } };
       } else {
+        console.log('❌ Login falhou:', result.error);
         return { success: false, error: result.error };
       }
     } catch (error) {
-      console.error('Erro no login:', error);
+      console.error('❌ Erro no login:', error);
       return { success: false, error: 'Erro de conexão. Verifique sua internet e tente novamente.' };
     } finally {
       setLoading(false);
@@ -1645,7 +1715,10 @@ const AuthModal = ({ isOpen, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    console.log('📝 Formulário submetido:', { isLogin, email: formData.email });
+    
     if (!dbReady) {
+      console.log('❌ DB não disponível');
       showMessage('Banco de dados não está disponível. Tente novamente.', 'error');
       return;
     }
@@ -1659,22 +1732,28 @@ const AuthModal = ({ isOpen, onClose }) => {
       let result;
       
       if (isLogin) {
+        console.log('🔐 Tentando fazer login...');
         result = await signIn(formData.email, formData.password);
+        console.log('📊 Resultado do signIn:', result);
       } else {
+        console.log('👤 Tentando criar conta...');
         result = await signUp(formData.email, formData.password, formData.name, formData.company, userPhoto);
+        console.log('📊 Resultado do signUp:', result);
       }
 
       if (result.success) {
+        console.log('✅ Operação bem-sucedida');
         showMessage(isLogin ? 'Login realizado com sucesso!' : 'Conta criada com sucesso!', 'success');
         setTimeout(() => {
           onClose();
           resetForm();
         }, 1500);
       } else {
+        console.log('❌ Operação falhou:', result.error);
         showMessage(result.error, 'error');
       }
     } catch (error) {
-      console.error('Erro na autenticação:', error);
+      console.error('❌ Erro na autenticação:', error);
       showMessage('Erro interno. Tente novamente mais tarde.', 'error');
     } finally {
       setLoading(false);
