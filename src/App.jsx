@@ -1724,6 +1724,7 @@ const AuthModal = ({ isOpen, onClose }) => {
     }
 
     // Limpar mensagens anteriores
+    console.log('🧹 Limpando mensagens anteriores');
     setMessage('');
     setMessageType('');
     setLoading(true);
@@ -1750,12 +1751,19 @@ const AuthModal = ({ isOpen, onClose }) => {
         }, 1500);
       } else {
         console.log('❌ Operação falhou:', result.error);
+        console.log('🎯 Chamando showMessage com:', result.error);
         showMessage(result.error, 'error');
+        
+        // Force update para garantir que a mensagem seja exibida
+        setTimeout(() => {
+          console.log('📢 Estado da mensagem após timeout:', { message, messageType });
+        }, 100);
       }
     } catch (error) {
       console.error('❌ Erro na autenticação:', error);
       showMessage('Erro interno. Tente novamente mais tarde.', 'error');
     } finally {
+      console.log('🏁 Finalizando loading');
       setLoading(false);
     }
   };
@@ -1813,24 +1821,40 @@ const AuthModal = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {/* Mensagens de Feedback Melhoradas */}
-          {message && (
-            <div className={`p-4 rounded-xl mb-6 text-sm font-medium transition-all duration-300 ${
-              messageType === 'success' 
-                ? 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-800 border border-green-200' 
-                : 'bg-gradient-to-r from-red-50 to-pink-50 text-red-800 border border-red-200'
-            }`}>
-              <div className="flex items-center space-x-3">
-                {messageType === 'success' ? <Icons.CheckCircle /> : <Icons.AlertCircle />}
-                <div>
-                  <p className="font-bold">
-                    {messageType === 'success' ? '✅ Sucesso!' : '❌ Erro'}
-                  </p>
-                  <p>{message}</p>
+          {/* DEBUG - Container sempre visível para debug */}
+          <div className="mb-4 p-2 bg-gray-100 rounded text-xs text-gray-600">
+            Debug: message="{message}" | type="{messageType}" | loading={loading.toString()}
+          </div>
+
+          {/* Mensagens de Feedback Melhoradas - Sempre renderizar o container */}
+          <div className={`transition-all duration-300 mb-6 ${message ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
+            {message && (
+              <div className={`p-4 rounded-xl text-sm font-medium transition-all duration-300 ${
+                messageType === 'success' 
+                  ? 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-800 border border-green-200' 
+                  : 'bg-gradient-to-r from-red-50 to-pink-50 text-red-800 border border-red-200'
+              }`}>
+                <div className="flex items-center space-x-3">
+                  {messageType === 'success' ? <Icons.CheckCircle /> : <Icons.AlertCircle />}
+                  <div>
+                    <p className="font-bold">
+                      {messageType === 'success' ? '✅ Sucesso!' : '❌ Erro'}
+                    </p>
+                    <p>{message}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setMessage('');
+                      setMessageType('');
+                    }}
+                    className="ml-auto p-1 hover:bg-white/20 rounded-lg transition-colors"
+                  >
+                    <Icons.X />
+                  </button>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
