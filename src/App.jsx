@@ -1723,11 +1723,9 @@ const AuthModal = ({ isOpen, onClose }) => {
       return;
     }
 
-    // Limpar mensagens anteriores
-    console.log('🧹 Limpando mensagens anteriores');
-    setMessage('');
-    setMessageType('');
     setLoading(true);
+    
+    // Não limpa mensagens aqui - deixa a função showMessage gerenciar
 
     try {
       let result;
@@ -1752,11 +1750,17 @@ const AuthModal = ({ isOpen, onClose }) => {
       } else {
         console.log('❌ Operação falhou:', result.error);
         console.log('🎯 Chamando showMessage com:', result.error);
+        
+        // Chama a função showMessage e aguarda um pouco
         showMessage(result.error, 'error');
         
-        // Force update para garantir que a mensagem seja exibida
+        // Força uma verificação após um tempo
         setTimeout(() => {
-          console.log('📢 Estado da mensagem após timeout:', { message, messageType });
+          console.log('🔍 Verificação forçada - Estado atual:', { 
+            currentMessage: message, 
+            currentType: messageType,
+            targetMessage: result.error
+          });
         }, 100);
       }
     } catch (error) {
@@ -1826,35 +1830,49 @@ const AuthModal = ({ isOpen, onClose }) => {
             Debug: message="{message}" | type="{messageType}" | loading={loading.toString()}
           </div>
 
-          {/* Mensagens de Feedback Melhoradas - Sempre renderizar o container */}
-          <div className={`transition-all duration-300 mb-6 ${message ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
-            {message && (
-              <div className={`p-4 rounded-xl text-sm font-medium transition-all duration-300 ${
-                messageType === 'success' 
-                  ? 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-800 border border-green-200' 
-                  : 'bg-gradient-to-r from-red-50 to-pink-50 text-red-800 border border-red-200'
-              }`}>
+          {/* Mensagens de Feedback - Versão Simplificada */}
+          {message && (
+            <div className={`p-4 rounded-xl mb-6 text-sm font-medium border-2 ${
+              messageType === 'success' 
+                ? 'bg-green-50 text-green-800 border-green-200' 
+                : 'bg-red-50 text-red-800 border-red-200'
+            }`}>
+              <div className="flex items-start justify-between">
                 <div className="flex items-center space-x-3">
                   {messageType === 'success' ? <Icons.CheckCircle /> : <Icons.AlertCircle />}
                   <div>
                     <p className="font-bold">
-                      {messageType === 'success' ? '✅ Sucesso!' : '❌ Erro'}
+                      {messageType === 'success' ? '✅ Sucesso!' : '❌ Erro de Login'}
                     </p>
                     <p>{message}</p>
                   </div>
-                  <button
-                    onClick={() => {
-                      setMessage('');
-                      setMessageType('');
-                    }}
-                    className="ml-auto p-1 hover:bg-white/20 rounded-lg transition-colors"
-                  >
-                    <Icons.X />
-                  </button>
+                </div>
+                <button
+                  onClick={() => {
+                    console.log('🧹 Botão X clicado - limpando mensagem');
+                    setMessage('');
+                    setMessageType('');
+                  }}
+                  className="p-1 hover:bg-red-200 rounded transition-colors"
+                >
+                  <Icons.X />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Fallback - Se não houver mensagem mas houver erro, força uma mensagem */}
+          {!message && messageType === 'error' && (
+            <div className="p-4 rounded-xl mb-6 text-sm font-medium bg-red-50 text-red-800 border-2 border-red-200">
+              <div className="flex items-center space-x-3">
+                <Icons.AlertCircle />
+                <div>
+                  <p className="font-bold">❌ Erro de Login</p>
+                  <p>Ocorreu um erro. Verifique suas credenciais.</p>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
