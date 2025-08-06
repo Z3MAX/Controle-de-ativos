@@ -1095,30 +1095,100 @@ const AuthModal = ({ isOpen, onClose }) => {
       return;
     }
 
-    setLoading(true);
+    // Limpar mensagem anterior
     setMessage('');
+    setLoading(true);
 
     try {
       let result;
       
       if (isLogin) {
-        result = await signIn(formData.email, formData.password);
+        // Validações básicas antes de tentar login
+        if (!formData.email.trim()) {
+          setMessage('❌ Por favor, digite seu e-mail');
+          setLoading(false);
+          return;
+        }
+        
+        if (!formData.password.trim()) {
+          setMessage('❌ Por favor, digite sua senha');
+          setLoading(false);
+          return;
+        }
+
+        result = await signIn(formData.email.trim(), formData.password);
+        
+        // Tratamento específico de erros de login
+        if (!result.success) {
+          if (result.error.includes('E-mail não encontrado')) {
+            setMessage('❌ E-mail não cadastrado no sistema');
+          } else if (result.error.includes('Senha incorreta')) {
+            setMessage('❌ Senha incorreta. Tente novamente');
+          } else {
+            setMessage(`❌ ${result.error}`);
+          }
+          setLoading(false);
+          return;
+        }
       } else {
-        result = await signUp(formData.email, formData.password, formData.name, formData.company, userPhoto);
+        // Validações para registro
+        if (!formData.name.trim()) {
+          setMessage('❌ Por favor, digite seu nome');
+          setLoading(false);
+          return;
+        }
+        
+        if (!formData.email.trim()) {
+          setMessage('❌ Por favor, digite seu e-mail');
+          setLoading(false);
+          return;
+        }
+        
+        if (!formData.password.trim()) {
+          setMessage('❌ Por favor, digite uma senha');
+          setLoading(false);
+          return;
+        }
+
+        result = await signUp(formData.email.trim(), formData.password, formData.name.trim(), formData.company.trim(), userPhoto);
+        
+        // Tratamento específico de erros de registro
+        if (!result.success) {
+          if (result.error.includes('já está em uso') || result.error.includes('já existe')) {
+            setMessage('❌ Este e-mail já possui uma conta cadastrada');
+          } else if (result.error.includes('E-mail inválido')) {
+            setMessage('❌ Por favor, digite um e-mail válido');
+          } else if (result.error.includes('senha deve ter pelo menos')) {
+            setMessage('❌ A senha deve ter pelo menos 6 caracteres');
+          } else {
+            setMessage(`❌ ${result.error}`);
+          }
+          setLoading(false);
+          return;
+        }
       }
 
+      // Success - login ou registro bem-sucedido
       if (result.success) {
-        setMessage('✅ ' + (isLogin ? 'Login realizado!' : 'Conta criada!'));
+        setMessage(`✅ ${isLogin ? 'Login realizado com sucesso!' : 'Conta criada com sucesso!'}`);
+        
+        // Aguardar um pouco antes de fechar para mostrar mensagem de sucesso
         setTimeout(() => {
           onClose();
+          // Limpar formulário após fechar
+          setFormData({ email: '', password: '', name: '', company: '' });
+          setUserPhoto(null);
+          setMessage('');
         }, 1500);
-      } else {
-        setMessage(`❌ ${result.error}`);
       }
+
     } catch (error) {
-      setMessage(`❌ ${error.message}`);
+      console.error('Erro inesperado:', error);
+      setMessage('❌ Erro inesperado. Tente novamente em alguns instantes');
     } finally {
-      setLoading(false);
+      if (loading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -1224,8 +1294,18 @@ const AuthModal = ({ isOpen, onClose }) => {
                     required
                     minLength="2"
                     value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) => {
+                      setFormData({...formData, name: e.target.value});
+                      // Limpar mensagem de erro quando usuário começar a digitar
+                      if (message && message.includes('nome')) {
+                        setMessage('');
+                      }
+                    }}
+                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
+                      message && message.includes('nome')
+                        ? 'border-red-300 focus:ring-red-500 bg-red-50' 
+                        : 'border-gray-300 focus:ring-blue-500'
+                    }`}
                     placeholder="Seu nome completo"
                   />
                 </div>
@@ -1253,8 +1333,18 @@ const AuthModal = ({ isOpen, onClose }) => {
                 type="email"
                 required
                 value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => {
+                  setFormData({...formData, email: e.target.value});
+                  // Limpar mensagem de erro quando usuário começar a digitar
+                  if (message && message.includes('E-mail')) {
+                    setMessage('');
+                  }
+                }}
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
+                  message && (message.includes('E-mail') || message.includes('não cadastrado')) 
+                    ? 'border-red-300 focus:ring-red-500 bg-red-50' 
+                    : 'border-gray-300 focus:ring-blue-500'
+                }`}
                 placeholder="seu@email.com"
               />
             </div>
@@ -1268,8 +1358,18 @@ const AuthModal = ({ isOpen, onClose }) => {
                 required
                 minLength="6"
                 value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => {
+                  setFormData({...formData, password: e.target.value});
+                  // Limpar mensagem de erro quando usuário começar a digitar
+                  if (message && (message.includes('Senha') || message.includes('senha'))) {
+                    setMessage('');
+                  }
+                }}
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
+                  message && (message.includes('Senha') || message.includes('senha'))
+                    ? 'border-red-300 focus:ring-red-500 bg-red-50' 
+                    : 'border-gray-300 focus:ring-blue-500'
+                }`}
                 placeholder="Mínimo 6 caracteres"
               />
               <p className="text-xs text-gray-500 mt-1 flex items-center">
