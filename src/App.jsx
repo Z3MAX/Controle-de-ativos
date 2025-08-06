@@ -946,8 +946,7 @@ const Icons = {
 const AuthModal = ({ isOpen, onClose }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState(''); // State separado para erros
-  const [successMessage, setSuccessMessage] = useState(''); // State separado para sucesso
+  const [message, setMessage] = useState('');
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
   const [userPhoto, setUserPhoto] = useState(null);
   const { signIn, signUp, dbReady } = useAuth();
@@ -959,40 +958,6 @@ const AuthModal = ({ isOpen, onClose }) => {
     name: '',
     company: ''
   });
-
-  // Limpar mensagens quando trocar modo ou abrir modal
-  useEffect(() => {
-    if (isOpen) {
-      setErrorMessage('');
-      setSuccessMessage('');
-    }
-  }, [isOpen]);
-
-  // Função para limpar todas as mensagens
-  const clearMessages = () => {
-    setErrorMessage('');
-    setSuccessMessage('');
-  };
-
-  // Função para mostrar erro
-  const showError = (message) => {
-    clearMessages();
-    setErrorMessage(message);
-  };
-
-  // Função para mostrar sucesso
-  const showSuccess = (message) => {
-    clearMessages();
-    setSuccessMessage(message);
-  };
-
-  // Limpar mensagem apenas quando trocar entre login/registro
-  const handleToggleMode = () => {
-    setIsLogin(!isLogin);
-    clearMessages();
-    setFormData({ email: '', password: '', name: '', company: '' });
-    setUserPhoto(null);
-  };
 
   const PhotoUtils = {
     fileToBase64: (file) => {
@@ -1100,7 +1065,7 @@ const AuthModal = ({ isOpen, onClose }) => {
       setShowPhotoOptions(false);
     } catch (error) {
       console.error('Erro ao capturar foto:', error);
-      showError('❌ Erro ao acessar câmera');
+      setMessage('❌ Erro ao acessar câmera');
     }
   };
 
@@ -1117,7 +1082,7 @@ const AuthModal = ({ isOpen, onClose }) => {
         setUserPhoto(resizedPhoto);
       } catch (error) {
         console.error('Erro ao processar foto:', error);
-        showError('❌ Erro ao processar foto');
+        setMessage('❌ Erro ao processar foto');
       }
     }
   };
@@ -1126,99 +1091,33 @@ const AuthModal = ({ isOpen, onClose }) => {
     e.preventDefault();
     
     if (!dbReady) {
-      showError('❌ Banco de dados não está disponível');
+      setMessage('❌ Banco de dados não está disponível');
       return;
     }
 
-    // Limpar mensagens e iniciar loading
-    clearMessages();
     setLoading(true);
+    setMessage('');
 
     try {
       let result;
       
       if (isLogin) {
-        // LOGIN
-        if (!formData.email.trim()) {
-          showError('❌ Por favor, digite seu e-mail');
-          setLoading(false);
-          return;
-        }
-        
-        if (!formData.password.trim()) {
-          showError('❌ Por favor, digite sua senha');
-          setLoading(false);
-          return;
-        }
-
-        console.log('Fazendo login...');
-        result = await signIn(formData.email.trim(), formData.password);
-        console.log('Resultado:', result);
-        
-        if (!result.success) {
-          if (result.error.includes('E-mail não encontrado')) {
-            showError('❌ E-mail não cadastrado no sistema');
-          } else if (result.error.includes('Senha incorreta')) {
-            showError('❌ Senha incorreta. Tente novamente');
-          } else {
-            showError(`❌ ${result.error}`);
-          }
-          setLoading(false);
-          return;
-        }
+        result = await signIn(formData.email, formData.password);
       } else {
-        // REGISTRO
-        if (!formData.name.trim()) {
-          showError('❌ Por favor, digite seu nome');
-          setLoading(false);
-          return;
-        }
-        
-        if (!formData.email.trim()) {
-          showError('❌ Por favor, digite seu e-mail');
-          setLoading(false);
-          return;
-        }
-        
-        if (!formData.password.trim()) {
-          showError('❌ Por favor, digite uma senha');
-          setLoading(false);
-          return;
-        }
-
-        result = await signUp(formData.email.trim(), formData.password, formData.name.trim(), formData.company.trim(), userPhoto);
-        
-        if (!result.success) {
-          if (result.error.includes('já está em uso') || result.error.includes('já existe')) {
-            showError('❌ Este e-mail já possui uma conta cadastrada');
-          } else if (result.error.includes('E-mail inválido')) {
-            showError('❌ Por favor, digite um e-mail válido');
-          } else if (result.error.includes('senha deve ter pelo menos')) {
-            showError('❌ A senha deve ter pelo menos 6 caracteres');
-          } else {
-            showError(`❌ ${result.error}`);
-          }
-          setLoading(false);
-          return;
-        }
+        result = await signUp(formData.email, formData.password, formData.name, formData.company, userPhoto);
       }
 
-      // SUCESSO
       if (result.success) {
-        showSuccess(`✅ ${isLogin ? 'Login realizado com sucesso!' : 'Conta criada com sucesso!'}`);
-        setLoading(false);
-        
+        setMessage('✅ ' + (isLogin ? 'Login realizado!' : 'Conta criada!'));
         setTimeout(() => {
           onClose();
-          setFormData({ email: '', password: '', name: '', company: '' });
-          setUserPhoto(null);
-          clearMessages();
         }, 1500);
+      } else {
+        setMessage(`❌ ${result.error}`);
       }
-
     } catch (error) {
-      console.error('Erro:', error);
-      showError('❌ Erro inesperado. Tente novamente');
+      setMessage(`❌ ${error.message}`);
+    } finally {
       setLoading(false);
     }
   };
@@ -1273,27 +1172,6 @@ const AuthModal = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {/* MENSAGEM DE ERRO/SUCESSO - SEMPRE VISÍVEL */}
-          <div className="mb-6" style={{ minHeight: '70px' }}>
-            {errorMessage && (
-              <div className="p-4 rounded-xl text-sm font-bold border shadow-lg bg-red-50 text-red-800 border-red-200">
-                <div className="flex items-center">
-                  <Icons.AlertCircle />
-                  <span className="ml-2">{errorMessage}</span>
-                </div>
-              </div>
-            )}
-            
-            {successMessage && (
-              <div className="p-4 rounded-xl text-sm font-bold border shadow-lg bg-green-50 text-green-800 border-green-200">
-                <div className="flex items-center">
-                  <Icons.CheckCircle />
-                  <span className="ml-2">{successMessage}</span>
-                </div>
-              </div>
-            )}
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <>
@@ -1346,18 +1224,8 @@ const AuthModal = ({ isOpen, onClose }) => {
                     required
                     minLength="2"
                     value={formData.name}
-                    onChange={(e) => {
-                      setFormData({...formData, name: e.target.value});
-                      // Limpar mensagem de erro quando usuário começar a digitar
-                      if (errorMessage && errorMessage.includes('nome')) {
-                        clearMessages();
-                      }
-                    }}
-                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
-                      errorMessage && errorMessage.includes('nome')
-                        ? 'border-red-300 focus:ring-red-500 bg-red-50' 
-                        : 'border-gray-300 focus:ring-blue-500'
-                    }`}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Seu nome completo"
                   />
                 </div>
@@ -1385,18 +1253,8 @@ const AuthModal = ({ isOpen, onClose }) => {
                 type="email"
                 required
                 value={formData.email}
-                onChange={(e) => {
-                  setFormData({...formData, email: e.target.value});
-                  // Limpar mensagem de erro quando usuário começar a digitar
-                  if (errorMessage && errorMessage.includes('E-mail')) {
-                    clearMessages();
-                  }
-                }}
-                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
-                  errorMessage && (errorMessage.includes('E-mail') || errorMessage.includes('não cadastrado')) 
-                    ? 'border-red-300 focus:ring-red-500 bg-red-50' 
-                    : 'border-gray-300 focus:ring-blue-500'
-                }`}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="seu@email.com"
               />
             </div>
@@ -1410,18 +1268,8 @@ const AuthModal = ({ isOpen, onClose }) => {
                 required
                 minLength="6"
                 value={formData.password}
-                onChange={(e) => {
-                  setFormData({...formData, password: e.target.value});
-                  // Limpar mensagem de erro quando usuário começar a digitar
-                  if (errorMessage && (errorMessage.includes('Senha') || errorMessage.includes('senha'))) {
-                    clearMessages();
-                  }
-                }}
-                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
-                  errorMessage && (errorMessage.includes('Senha') || errorMessage.includes('senha'))
-                    ? 'border-red-300 focus:ring-red-500 bg-red-50' 
-                    : 'border-gray-300 focus:ring-blue-500'
-                }`}
+                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Mínimo 6 caracteres"
               />
               <p className="text-xs text-gray-500 mt-1 flex items-center">
