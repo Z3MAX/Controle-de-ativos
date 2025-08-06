@@ -964,15 +964,15 @@ const AuthModal = ({ isOpen, onClose }) => {
     console.log('🔴 Message state changed:', message);
   }, [message]);
 
-  // Debug: Log sempre que modal abre/fecha
+  // Limpar mensagens apenas quando modal abre pela primeira vez
   useEffect(() => {
     console.log('🔴 Modal isOpen:', isOpen);
-    if (isOpen) {
+    if (isOpen && !loading) { // Só limpa se não estiver processando
       // Limpar mensagens quando modal abre
       setMessage('');
       console.log('🔴 Cleared message on modal open');
     }
-  }, [isOpen]);
+  }, [isOpen]); // Removemos loading como dependência
 
   const PhotoUtils = {
     fileToBase64: (file) => {
@@ -1114,108 +1114,113 @@ const AuthModal = ({ isOpen, onClose }) => {
       return;
     }
 
-    // Limpar mensagem anterior e força re-render
+    // Limpar mensagem anterior
     console.log('🔴 Clearing previous message...');
     setMessage('');
+    setLoading(true);
     
-    // Pequeno delay para garantir que o estado foi limpo
-    setTimeout(async () => {
-      setLoading(true);
-      console.log('🔴 Starting login process...');
+    console.log('🔴 Starting login process...');
 
-      try {
-        let result;
+    try {
+      let result;
+      
+      if (isLogin) {
+        // Validações básicas antes de tentar login
+        if (!formData.email.trim()) {
+          console.log('🔴 Email empty');
+          setMessage('❌ Por favor, digite seu e-mail');
+          setLoading(false);
+          return;
+        }
         
-        if (isLogin) {
-          // Validações básicas antes de tentar login
-          if (!formData.email.trim()) {
-            console.log('🔴 Email empty');
-            setMessage('❌ Por favor, digite seu e-mail');
-            setLoading(false);
-            return;
-          }
-          
-          if (!formData.password.trim()) {
-            console.log('🔴 Password empty');
-            setMessage('❌ Por favor, digite sua senha');
-            setLoading(false);
-            return;
-          }
-
-          console.log('🔴 Calling signIn...');
-          result = await signIn(formData.email.trim(), formData.password);
-          console.log('🔴 SignIn result:', result);
-          
-          // Tratamento específico de erros de login
-          if (!result.success) {
-            console.log('🔴 Login failed, setting error message...');
-            if (result.error.includes('E-mail não encontrado')) {
-              setMessage('❌ E-mail não cadastrado no sistema');
-            } else if (result.error.includes('Senha incorreta')) {
-              setMessage('❌ Senha incorreta. Tente novamente');
-            } else {
-              setMessage(`❌ ${result.error}`);
-            }
-            console.log('🔴 Error message set');
-            setLoading(false);
-            return;
-          }
-        } else {
-          // Código do registro permanece igual...
-          if (!formData.name.trim()) {
-            setMessage('❌ Por favor, digite seu nome');
-            setLoading(false);
-            return;
-          }
-          
-          if (!formData.email.trim()) {
-            setMessage('❌ Por favor, digite seu e-mail');
-            setLoading(false);
-            return;
-          }
-          
-          if (!formData.password.trim()) {
-            setMessage('❌ Por favor, digite uma senha');
-            setLoading(false);
-            return;
-          }
-
-          result = await signUp(formData.email.trim(), formData.password, formData.name.trim(), formData.company.trim(), userPhoto);
-          
-          if (!result.success) {
-            if (result.error.includes('já está em uso') || result.error.includes('já existe')) {
-              setMessage('❌ Este e-mail já possui uma conta cadastrada');
-            } else if (result.error.includes('E-mail inválido')) {
-              setMessage('❌ Por favor, digite um e-mail válido');
-            } else if (result.error.includes('senha deve ter pelo menos')) {
-              setMessage('❌ A senha deve ter pelo menos 6 caracteres');
-            } else {
-              setMessage(`❌ ${result.error}`);
-            }
-            setLoading(false);
-            return;
-          }
+        if (!formData.password.trim()) {
+          console.log('🔴 Password empty');
+          setMessage('❌ Por favor, digite sua senha');
+          setLoading(false);
+          return;
         }
 
-        // Success
-        if (result.success) {
-          console.log('🔴 Login/signup successful');
-          setMessage(`✅ ${isLogin ? 'Login realizado com sucesso!' : 'Conta criada com sucesso!'}`);
+        console.log('🔴 Calling signIn...');
+        result = await signIn(formData.email.trim(), formData.password);
+        console.log('🔴 SignIn result:', result);
+        
+        // Tratamento específico de erros de login
+        if (!result.success) {
+          console.log('🔴 Login failed, setting error message...');
+          let errorMessage;
+          if (result.error.includes('E-mail não encontrado')) {
+            errorMessage = '❌ E-mail não cadastrado no sistema';
+          } else if (result.error.includes('Senha incorreta')) {
+            errorMessage = '❌ Senha incorreta. Tente novamente';
+          } else {
+            errorMessage = `❌ ${result.error}`;
+          }
           
-          setTimeout(() => {
-            onClose();
-            setFormData({ email: '', password: '', name: '', company: '' });
-            setUserPhoto(null);
-            setMessage('');
-          }, 1500);
+          console.log('🔴 Setting error message:', errorMessage);
+          setMessage(errorMessage);
+          console.log('🔴 Error message set');
+          setLoading(false);
+          return;
+        }
+      } else {
+        // Código do registro...
+        if (!formData.name.trim()) {
+          setMessage('❌ Por favor, digite seu nome');
+          setLoading(false);
+          return;
+        }
+        
+        if (!formData.email.trim()) {
+          setMessage('❌ Por favor, digite seu e-mail');
+          setLoading(false);
+          return;
+        }
+        
+        if (!formData.password.trim()) {
+          setMessage('❌ Por favor, digite uma senha');
+          setLoading(false);
+          return;
         }
 
-      } catch (error) {
-        console.error('🔴 Unexpected error:', error);
-        setMessage('❌ Erro inesperado. Tente novamente em alguns instantes');
-        setLoading(false);
+        result = await signUp(formData.email.trim(), formData.password, formData.name.trim(), formData.company.trim(), userPhoto);
+        
+        if (!result.success) {
+          let errorMessage;
+          if (result.error.includes('já está em uso') || result.error.includes('já existe')) {
+            errorMessage = '❌ Este e-mail já possui uma conta cadastrada';
+          } else if (result.error.includes('E-mail inválido')) {
+            errorMessage = '❌ Por favor, digite um e-mail válido';
+          } else if (result.error.includes('senha deve ter pelo menos')) {
+            errorMessage = '❌ A senha deve ter pelo menos 6 caracteres';
+          } else {
+            errorMessage = `❌ ${result.error}`;
+          }
+          
+          setMessage(errorMessage);
+          setLoading(false);
+          return;
+        }
       }
-    }, 100); // Delay de 100ms para garantir limpeza do estado
+
+      // Success
+      if (result.success) {
+        console.log('🔴 Login/signup successful');
+        setMessage(`✅ ${isLogin ? 'Login realizado com sucesso!' : 'Conta criada com sucesso!'}`);
+        setLoading(false);
+        
+        setTimeout(() => {
+          onClose();
+          setFormData({ email: '', password: '', name: '', company: '' });
+          setUserPhoto(null);
+          setMessage('');
+        }, 1500);
+      }
+
+    } catch (error) {
+      console.error('🔴 Unexpected error:', error);
+      setMessage('❌ Erro inesperado. Tente novamente em alguns instantes');
+      setLoading(false);
+    }
   };
 
   if (!isOpen) return null;
