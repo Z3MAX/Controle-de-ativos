@@ -949,6 +949,7 @@ const AuthModal = ({ isOpen, onClose }) => {
   const [message, setMessage] = useState('');
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
   const [userPhoto, setUserPhoto] = useState(null);
+  const [modalJustOpened, setModalJustOpened] = useState(false);
   const { signIn, signUp, dbReady } = useAuth();
   const fileInputRef = useRef(null);
 
@@ -964,15 +965,19 @@ const AuthModal = ({ isOpen, onClose }) => {
     console.log('🔴 Message state changed:', message);
   }, [message]);
 
-  // Limpar mensagens apenas quando modal abre pela primeira vez
+  // Controlar limpeza de mensagens apenas quando modal realmente abre
   useEffect(() => {
     console.log('🔴 Modal isOpen:', isOpen);
-    if (isOpen && !loading) { // Só limpa se não estiver processando
-      // Limpar mensagens quando modal abre
+    if (isOpen && !modalJustOpened) {
+      // Modal acabou de abrir - marcar flag e limpar mensagem
+      setModalJustOpened(true);
       setMessage('');
       console.log('🔴 Cleared message on modal open');
+    } else if (!isOpen) {
+      // Modal fechou - reset flag
+      setModalJustOpened(false);
     }
-  }, [isOpen]); // Removemos loading como dependência
+  }, [isOpen]);
 
   const PhotoUtils = {
     fileToBase64: (file) => {
@@ -1114,6 +1119,9 @@ const AuthModal = ({ isOpen, onClose }) => {
       return;
     }
 
+    // Marcar que não deve mais limpar mensagens (modal está em uso)
+    setModalJustOpened(false);
+    
     // Limpar mensagem anterior
     console.log('🔴 Clearing previous message...');
     setMessage('');
@@ -1156,9 +1164,14 @@ const AuthModal = ({ isOpen, onClose }) => {
             errorMessage = `❌ ${result.error}`;
           }
           
-          console.log('🔴 Setting error message:', errorMessage);
-          setMessage(errorMessage);
-          console.log('🔴 Error message set');
+          console.log('🔴 About to set error message:', errorMessage);
+          
+          // Forçar re-render com timeout para garantir que mensagem apareça
+          setTimeout(() => {
+            setMessage(errorMessage);
+            console.log('🔴 Error message set with timeout');
+          }, 50);
+          
           setLoading(false);
           return;
         }
@@ -1196,7 +1209,9 @@ const AuthModal = ({ isOpen, onClose }) => {
             errorMessage = `❌ ${result.error}`;
           }
           
-          setMessage(errorMessage);
+          setTimeout(() => {
+            setMessage(errorMessage);
+          }, 50);
           setLoading(false);
           return;
         }
@@ -1218,7 +1233,9 @@ const AuthModal = ({ isOpen, onClose }) => {
 
     } catch (error) {
       console.error('🔴 Unexpected error:', error);
-      setMessage('❌ Erro inesperado. Tente novamente em alguns instantes');
+      setTimeout(() => {
+        setMessage('❌ Erro inesperado. Tente novamente em alguns instantes');
+      }, 50);
       setLoading(false);
     }
   };
