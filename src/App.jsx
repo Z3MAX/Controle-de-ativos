@@ -3658,10 +3658,6 @@ const App = () => {
                 AssetManager Pro
               </h1>
               <p className="text-gray-700 text-xl font-medium mb-2">Sistema Inteligente de Controle de Ativos</p>
-              <div className="flex items-center justify-center space-x-2 text-sm">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-green-700 font-bold">Autenticação Segura SHA-256</span>
-              </div>
             </div>
 
             <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
@@ -3686,11 +3682,11 @@ const App = () => {
                   
                   <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl border border-green-100">
                     <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center shadow-lg">
-                      <Icons.Key />
+                      <Icons.Camera />
                     </div>
                     <div>
-                      <p className="font-bold text-green-900">Autenticação Segura</p>
-                      <p className="text-sm text-green-700">Senhas criptografadas com SHA-256</p>
+                      <p className="font-bold text-green-900">Fotos Inteligentes</p>
+                      <p className="text-sm text-green-700">Capture fotos diretamente no sistema</p>
                     </div>
                   </div>
                   
@@ -3709,16 +3705,16 @@ const App = () => {
                   onClick={() => setShowAuthModal(true)}
                   className="w-full bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white py-5 px-8 rounded-2xl font-bold transition-all shadow-xl hover:shadow-2xl transform hover:scale-105 text-lg"
                 >
-                  🔐 Acessar Sistema Seguro
+                  🚀 Acessar Sistema
                 </button>
 
                 <div className="mt-8 text-center">
                   <div className="flex items-center justify-center space-x-2 text-sm">
                     <Icons.CheckCircle />
-                    <span className="text-green-700 font-bold">Sistema com validação de senha</span>
+                    <span className="text-green-700 font-bold">Conexão com NeonDB estabelecida</span>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Sistema pronto para uso • Autenticação obrigatória
+                  <p className="text-xs text-gray-500 mt-4">
+                    ©1995-2025 Integration Consulting and any of its affiliates. All rights reserved.
                   </p>
                 </div>
               </div>
