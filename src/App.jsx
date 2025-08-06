@@ -505,258 +505,509 @@ const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [dbReady, setDbReady] = useState(false);
-  const [connectionError, setConnectionError] = useState(null);
+  const AuthModal = ({ isOpen, onClose }) => {
+  const [isLogin, setIsLogin] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
+  const [userPhoto, setUserPhoto] = useState(null);
+  const { signIn, signUp, dbReady } = useAuth();
+  const fileInputRef = useRef(null);
 
-  // ============= FUNÇÃO PARA CRIAR ANDARES PADRÃO =============
-  const createDefaultFloors = async (userId) => {
-    try {
-      console.log('🏢 Verificando andares padrão para usuário:', userId);
-      
-      const existingFloors = await databaseService.floors.getAll(userId);
-      if (!existingFloors.success) {
-        console.error('Erro ao buscar andares existentes');
-        return;
-      }
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    name: '',
+    company: ''
+  });
 
-      const floorNames = existingFloors.data.map(floor => floor.name.toLowerCase());
-      
-      const defaultFloors = [
-        {
-          name: '5º Andar',
-          description: 'Quinto andar - Administrativo e Financeiro'
-        },
-        {
-          name: '11º Andar', 
-          description: 'Décimo primeiro andar - Tecnologia e Inovação'
-        },
-        {
-          name: '15º Andar',
-          description: 'Décimo quinto andar - Diretoria Executiva'
-        }
-      ];
-
-      for (const floorData of defaultFloors) {
-        const floorExists = floorNames.some(name => 
-          name.includes('5') && floorData.name.includes('5') ||
-          name.includes('11') && floorData.name.includes('11') ||
-          name.includes('15') && floorData.name.includes('15')
-        );
-
-        if (!floorExists) {
-          console.log(`🏢 Criando andar padrão: ${floorData.name}`);
-          const result = await databaseService.floors.create(floorData, userId);
-          
-          if (result.success) {
-            console.log(`✅ Andar "${floorData.name}" criado com sucesso`);
-            await createDefaultRooms(result.data.id, userId, floorData.name);
-          } else {
-            console.error(`❌ Erro ao criar andar "${floorData.name}":`, result.error);
-          }
-        } else {
-          console.log(`ℹ️ Andar "${floorData.name}" já existe`);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Erro ao criar andares padrão:', error);
-    }
-  };
-
-  // ============= FUNÇÃO PARA CRIAR SALAS PADRÃO =============
-  const createDefaultRooms = async (floorId, userId, floorName) => {
-    try {
-      let defaultRooms = [];
-      
-      if (floorName.includes('5')) {
-        defaultRooms = [
-          { name: 'Sala de Reuniões 501', description: 'Sala de reuniões principal' },
-          { name: 'Departamento Financeiro', description: 'Setor financeiro e contábil' },
-          { name: 'Recursos Humanos', description: 'Departamento de RH' }
-        ];
-      } else if (floorName.includes('11')) {
-        defaultRooms = [
-          { name: 'Sala de Desenvolvimento', description: 'Equipe de desenvolvimento de software' },
-          { name: 'Laboratório de Testes', description: 'Ambiente para testes e homologação' },
-          { name: 'Sala de Inovação', description: 'Espaço para brainstorming e inovação' }
-        ];
-      } else if (floorName.includes('15')) {
-        defaultRooms = [
-          { name: 'Sala da Diretoria', description: 'Sala do conselho executivo' },
-          { name: 'Sala de Reuniões Executiva', description: 'Reuniões de alta gestão' },
-          { name: 'Secretaria Executiva', description: 'Suporte à diretoria' }
-        ];
-      }
-
-      for (const roomData of defaultRooms) {
-        const roomResult = await databaseService.rooms.create({
-          ...roomData,
-          floor_id: floorId
-        }, userId);
-        
-        if (roomResult.success) {
-          console.log(`✅ Sala "${roomData.name}" criada no ${floorName}`);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Erro ao criar salas padrão:', error);
-    }
-  };
-
+  // Limpar mensagem quando mudamos entre login/cadastro
   useEffect(() => {
-    const initializeApp = async () => {
-      try {
-        const isConnected = await databaseService.testConnection();
-        if (!isConnected) {
-          setConnectionError('Falha na conexão com banco de dados NeonDB');
-          setLoading(false);
-          return;
-        }
+    setMessage('');
+  }, [isLogin]);
 
-        const dbInit = await databaseService.initializeDatabase();
-        if (!dbInit) {
-          setConnectionError('Falha ao inicializar estrutura do banco');
-          setLoading(false);
-          return;
-        }
-
-        setDbReady(true);
-        setConnectionError(null);
-
-        const savedUser = localStorage.getItem('asset_manager_user');
-        if (savedUser) {
-          try {
-            const userData = JSON.parse(savedUser);
-            const userCheck = await databaseService.users.findByEmail(userData.email);
-            if (userCheck.success && userCheck.data) {
-              setUser(userCheck.data);
-              setProfile(userCheck.data);
-              
-              await createDefaultFloors(userCheck.data.id);
-            } else {
-              localStorage.removeItem('asset_manager_user');
-            }
-          } catch (error) {
-            console.error('Erro ao validar usuário salvo:', error);
-            localStorage.removeItem('asset_manager_user');
-          }
-        }
-      } catch (error) {
-        console.error('Erro ao inicializar aplicação:', error);
-        setConnectionError('Erro ao conectar com banco de dados');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initializeApp();
-  }, []);
-
-  const signUp = async (email, password, name, company = '', photo = null) => {
-    if (!dbReady) {
-      return { success: false, error: 'Banco de dados não disponível' };
+  // Limpar mensagem após 5 segundos
+  useEffect(() => {
+    if (message && !message.includes('✅')) {
+      const timer = setTimeout(() => {
+        setMessage('');
+      }, 5000);
+      return () => clearTimeout(timer);
     }
+  }, [message]);
 
-    try {
-      setLoading(true);
-      
-      // Validações básicas
-      if (!email || !password || !name) {
-        return { success: false, error: 'E-mail, senha e nome são obrigatórios' };
-      }
-      
-      if (password.length < 6) {
-        return { success: false, error: 'A senha deve ter pelo menos 6 caracteres' };
-      }
-
-      // Validação de e-mail
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        return { success: false, error: 'E-mail inválido' };
-      }
-      
-      const result = await databaseService.users.create({
-        email,
-        password,
-        name,
-        company,
-        photo
+  const PhotoUtils = {
+    fileToBase64: (file) => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
       });
+    },
 
-      if (result.success) {
-        const userData = result.data;
-        setUser(userData);
-        setProfile(userData);
-        localStorage.setItem('asset_manager_user', JSON.stringify(userData));
+    resizeImage: (file, maxWidth = 800, maxHeight = 600, quality = 0.8) => {
+      return new Promise((resolve) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
         
-        await createDefaultFloors(userData.id);
+        img.onload = () => {
+          let { width, height } = img;
+          
+          if (width > height) {
+            if (width > maxWidth) {
+              height = (height * maxWidth) / width;
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = (width * maxHeight) / height;
+              height = maxHeight;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          const base64 = canvas.toDataURL('image/jpeg', quality);
+          resolve(base64);
+        };
         
-        return { success: true, data: { user: userData } };
-      } else {
-        return { success: false, error: result.error };
-      }
-    } catch (error) {
-      console.error('Erro no registro:', error);
-      return { success: false, error: error.message };
-    } finally {
-      setLoading(false);
+        img.src = URL.createObjectURL(file);
+      });
+    },
+
+    captureFromCamera: () => {
+      return new Promise((resolve, reject) => {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          reject(new Error('Câmera não suportada neste navegador'));
+          return;
+        }
+
+        navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: 'user'
+          } 
+        })
+          .then(stream => {
+            const video = document.createElement('video');
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            video.srcObject = stream;
+            video.autoplay = true;
+            video.muted = true;
+            
+            video.onloadedmetadata = () => {
+              setTimeout(() => {
+                try {
+                  canvas.width = video.videoWidth;
+                  canvas.height = video.videoHeight;
+                  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                  
+                  stream.getTracks().forEach(track => {
+                    track.stop();
+                  });
+                  
+                  const base64 = canvas.toDataURL('image/jpeg', 0.8);
+                  resolve(base64);
+                } catch (error) {
+                  stream.getTracks().forEach(track => track.stop());
+                  reject(new Error('Erro ao capturar foto: ' + error.message));
+                }
+              }, 500);
+            };
+            
+            video.onerror = (error) => {
+              stream.getTracks().forEach(track => track.stop());
+              reject(new Error('Erro no vídeo: ' + error.message));
+            };
+          })
+          .catch(error => {
+            console.error('Erro ao acessar câmera:', error);
+            reject(new Error('Não foi possível acessar a câmera. Verifique as permissões.'));
+          });
+      });
     }
   };
 
-  const signIn = async (email, password) => {
+  const handlePhotoCapture = async () => {
+    try {
+      const photo = await PhotoUtils.captureFromCamera();
+      setUserPhoto(photo);
+      setShowPhotoOptions(false);
+    } catch (error) {
+      console.error('Erro ao capturar foto:', error);
+      setMessage('❌ Erro ao acessar câmera: ' + error.message);
+    }
+  };
+
+  const handlePhotoGallery = () => {
+    fileInputRef.current?.click();
+    setShowPhotoOptions(false);
+  };
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      try {
+        const resizedPhoto = await PhotoUtils.resizeImage(file, 400, 400, 0.8);
+        setUserPhoto(resizedPhoto);
+      } catch (error) {
+        console.error('Erro ao processar foto:', error);
+        setMessage('❌ Erro ao processar foto: ' + error.message);
+      }
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Limpar mensagem anterior
+    setMessage('');
+    
     if (!dbReady) {
-      return { success: false, error: 'Banco de dados não disponível' };
+      setMessage('❌ Banco de dados não está disponível');
+      return;
     }
 
+    // Validações no frontend antes de enviar
+    if (!formData.email.trim()) {
+      setMessage('❌ E-mail é obrigatório');
+      return;
+    }
+
+    if (!formData.password.trim()) {
+      setMessage('❌ Senha é obrigatória');
+      return;
+    }
+
+    if (!isLogin && !formData.name.trim()) {
+      setMessage('❌ Nome é obrigatório para criar conta');
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setMessage('❌ A senha deve ter pelo menos 6 caracteres');
+      return;
+    }
+
+    // Validação de e-mail
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setMessage('❌ Formato de e-mail inválido');
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      setLoading(true);
+      let result;
       
-      // Validações básicas
-      if (!email || !password) {
-        return { success: false, error: 'E-mail e senha são obrigatórios' };
-      }
-      
-      const result = await databaseService.users.authenticate(email, password);
-      
-      if (result.success) {
-        const userData = result.data;
-        setUser(userData);
-        setProfile(userData);
-        localStorage.setItem('asset_manager_user', JSON.stringify(userData));
-        
-        await createDefaultFloors(userData.id);
-        
-        return { success: true, data: { user: userData } };
+      if (isLogin) {
+        console.log('🔐 Tentando fazer login com:', formData.email);
+        result = await signIn(formData.email, formData.password);
       } else {
-        return { success: false, error: result.error };
+        console.log('👤 Tentando criar conta para:', formData.email);
+        result = await signUp(formData.email, formData.password, formData.name, formData.company, userPhoto);
+      }
+
+      console.log('📋 Resultado da autenticação:', result);
+
+      if (result.success) {
+        setMessage('✅ ' + (isLogin ? 'Login realizado com sucesso!' : 'Conta criada com sucesso!'));
+        
+        // Fechar modal após sucesso
+        setTimeout(() => {
+          setMessage('');
+          setFormData({ email: '', password: '', name: '', company: '' });
+          setUserPhoto(null);
+          onClose();
+        }, 1500);
+      } else {
+        // Exibir erro específico retornado pelo backend
+        console.error('❌ Erro na autenticação:', result.error);
+        setMessage(`❌ ${result.error || 'Erro desconhecido'}`);
       }
     } catch (error) {
-      console.error('Erro no login:', error);
-      return { success: false, error: error.message };
+      console.error('💥 Erro inesperado:', error);
+      setMessage(`❌ Erro inesperado: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const signOut = async () => {
-    try {
-      setLoading(true);
-      setUser(null);
-      setProfile(null);
-      localStorage.removeItem('asset_manager_user');
-      return { success: true };
-    } catch (error) {
-      console.error('Erro no logout:', error);
-      return { success: false, error: error.message };
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (!isOpen) return null;
 
-  const updateProfile = async (updates) => {
-    if (!user) return { success: false, error: 'Usuário não logado' };
+  return (
+    <>
+      <div className="fixed inset-0 bg-gradient-to-br from-black/60 via-purple-900/60 to-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 max-w-md w-full shadow-2xl border border-white/20 max-h-[95vh] overflow-y-auto">
+          <button
+            onClick={() => {
+              setMessage('');
+              setFormData({ email: '', password: '', name: '', company: '' });
+              setUserPhoto(null);
+              onClose();
+            }}
+            className="absolute top-4 right-4 w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
+          >
+            <Icons.X />
+          </button>
 
-    try {
-      setLoading(true);
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+              <Icons.User />
+            </div>
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-gray-900 bg-clip-text text-transparent">
+              {isLogin ? 'Entrar' : 'Criar Conta'}
+            </h2>
+            <p className="text-gray-600 mt-2">
+              {isLogin ? 'Acesse sua conta' : 'Crie sua conta com NeonDB'}
+            </p>
+            {!isLogin && (
+              <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-700 font-medium">
+                  🔐 Sua senha será criptografada com segurança
+                </p>
+              </div>
+            )}
+          </div>
+
+          {!dbReady && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg mb-6">
+              <p className="text-red-800 text-sm font-medium">
+                ⚠️ Conexão com banco de dados necessária para login
+              </p>
+            </div>
+          )}
+
+          {/* MENSAGEM DE ERRO/SUCESSO - DESTACADA */}
+          {message && (
+            <div className={`p-4 rounded-2xl mb-6 text-sm font-bold border-2 transition-all duration-300 ${
+              message.includes('✅') 
+                ? 'bg-green-50 text-green-800 border-green-300 shadow-green-100 shadow-lg' 
+                : 'bg-red-50 text-red-800 border-red-300 shadow-red-100 shadow-lg animate-pulse'
+            }`}>
+              <div className="flex items-center space-x-2">
+                <span className="text-lg">
+                  {message.includes('✅') ? '✅' : '⚠️'}
+                </span>
+                <span>{message}</span>
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {!isLogin && (
+              <>
+                <div className="text-center mb-6">
+                  <label className="block text-sm font-bold text-gray-700 mb-3">
+                    📷 Foto do Perfil (opcional)
+                  </label>
+                  
+                  {userPhoto ? (
+                    <div className="relative inline-block">
+                      <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-xl">
+                        <img 
+                          src={userPhoto} 
+                          alt="Foto do usuário" 
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowPhotoOptions(true)}
+                        className="absolute -bottom-2 -right-2 w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg transition-colors"
+                      >
+                        <Icons.Edit />
+                      </button>
+                    </div>
+                  ) : (
+                    <div 
+                      onClick={() => setShowPhotoOptions(true)}
+                      className="w-24 h-24 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full flex items-center justify-center mx-auto cursor-pointer hover:from-gray-300 hover:to-gray-400 transition-all border-4 border-dashed border-gray-400 hover:border-blue-400"
+                    >
+                      <Icons.Camera />
+                    </div>
+                  )}
+                  
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nome Completo *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    minLength="2"
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    placeholder="Seu nome completo"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Empresa (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.company}
+                    onChange={(e) => setFormData({...formData, company: e.target.value})}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    placeholder="Nome da empresa"
+                  />
+                </div>
+              </>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                E-mail *
+              </label>
+              <input
+                type="email"
+                required
+                value={formData.email}
+                onChange={(e) => {
+                  setFormData({...formData, email: e.target.value});
+                  // Limpar mensagem quando o usuário começar a digitar
+                  if (message && !message.includes('✅')) {
+                    setMessage('');
+                  }
+                }}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                placeholder="seu@email.com"
+                autoComplete="email"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Senha *
+              </label>
+              <input
+                type="password"
+                required
+                minLength="6"
+                value={formData.password}
+                onChange={(e) => {
+                  setFormData({...formData, password: e.target.value});
+                  // Limpar mensagem quando o usuário começar a digitar
+                  if (message && !message.includes('✅')) {
+                    setMessage('');
+                  }
+                }}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                placeholder="Mínimo 6 caracteres"
+                autoComplete={isLogin ? "current-password" : "new-password"}
+              />
+              <p className="text-xs text-gray-500 mt-1 flex items-center">
+                <Icons.Key />
+                <span className="ml-1">
+                  {isLogin ? 'Digite sua senha' : 'Será criptografada com SHA-256'}
+                </span>
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || !dbReady}
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-400 text-white py-3 px-6 rounded-lg font-medium transition-all shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none disabled:hover:scale-100"
+            >
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+                  {isLogin ? 'Entrando...' : 'Criando conta...'}
+                </div>
+              ) : (
+                isLogin ? 'Entrar' : 'Criar Conta'
+              )}
+            </button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => {
+                setIsLogin(!isLogin);
+                setMessage('');
+                setUserPhoto(null);
+                setFormData({ email: '', password: '', name: '', company: '' });
+              }}
+              className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
+            >
+              {isLogin ? 'Não tem conta? Criar agora' : 'Já tem conta? Entrar'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal de opções de foto */}
+      {showPhotoOptions && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl border border-white/20 overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-xl font-bold">📷 Adicionar Foto</h3>
+                  <p className="text-blue-100 text-sm mt-1">Escolha uma opção</p>
+                </div>
+                <button
+                  onClick={() => setShowPhotoOptions(false)}
+                  className="p-2 hover:bg-white/20 rounded-xl transition-colors"
+                >
+                  <Icons.X />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <button
+                onClick={handlePhotoCapture}
+                className="w-full bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white p-4 rounded-2xl flex items-center space-x-3 transition-all transform hover:scale-105 shadow-lg"
+              >
+                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                  <Icons.Camera />
+                </div>
+                <div className="text-left">
+                  <p className="font-bold">Tirar Foto</p>
+                  <p className="text-sm text-emerald-100">Usar câmera do dispositivo</p>
+                </div>
+              </button>
+              
+              <button
+                onClick={handlePhotoGallery}
+                className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white p-4 rounded-2xl flex items-center space-x-3 transition-all transform hover:scale-105 shadow-lg"
+              >
+                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                  <Icons.Image />
+                </div>
+                <div className="text-left">
+                  <p className="font-bold">Escolher da Galeria</p>
+                  <p className="text-sm text-blue-100">Selecionar foto existente</p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
       const result = await databaseService.users.update(user.id, updates);
       
       if (result.success) {
