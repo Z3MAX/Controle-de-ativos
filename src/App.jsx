@@ -65,6 +65,17 @@ const databaseService = {
     try {
       const sql = await this.getConnection();
 
+      // Criar tabela de times
+      await sql`
+        CREATE TABLE IF NOT EXISTS teams (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          description TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `;
+
       // Criar tabela de usuários com senha hash e foto
       await sql`
         CREATE TABLE IF NOT EXISTS users (
@@ -74,6 +85,7 @@ const databaseService = {
           password_hash VARCHAR(255) NOT NULL,
           company VARCHAR(255),
           photo TEXT,
+          team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -87,17 +99,33 @@ const databaseService = {
         console.log('ℹ️ Coluna password_hash já existe ou erro na migração:', error);
       }
 
+      // Verificar se existe coluna team_id (para migração)
+      try {
+        await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL`;
+        console.log('✅ Coluna team_id adicionada/verificada na tabela users');
+      } catch (error) {
+        console.log('ℹ️ Coluna team_id já existe ou erro na migração:', error);
+      }
+
       // Criar tabela de andares
       await sql`
         CREATE TABLE IF NOT EXISTS floors (
           id SERIAL PRIMARY KEY,
           name VARCHAR(255) NOT NULL,
           description TEXT,
-          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `;
+
+      // Migração: adicionar team_id aos floors
+      try {
+        await sql`ALTER TABLE floors ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE`;
+        console.log('✅ Coluna team_id adicionada/verificada na tabela floors');
+      } catch (error) {
+        console.log('ℹ️ Coluna team_id já existe ou erro na migração:', error);
+      }
 
       // Criar tabela de salas
       await sql`
@@ -106,11 +134,19 @@ const databaseService = {
           name VARCHAR(255) NOT NULL,
           description TEXT,
           floor_id INTEGER REFERENCES floors(id) ON DELETE CASCADE,
-          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `;
+
+      // Migração: adicionar team_id às rooms
+      try {
+        await sql`ALTER TABLE rooms ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE`;
+        console.log('✅ Coluna team_id adicionada/verificada na tabela rooms');
+      } catch (error) {
+        console.log('ℹ️ Coluna team_id já existe ou erro na migração:', error);
+      }
 
       // Criar tabela de ativos
       await sql`
@@ -127,18 +163,75 @@ const databaseService = {
           photo TEXT,
           supplier VARCHAR(255),
           serial_number VARCHAR(255),
-          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(code, user_id)
+          UNIQUE(code, team_id)
         )
       `;
+
+      // Migração: adicionar team_id aos assets
+      try {
+        await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE`;
+        console.log('✅ Coluna team_id adicionada/verificada na tabela assets');
+      } catch (error) {
+        console.log('ℹ️ Coluna team_id já existe ou erro na migração:', error);
+      }
+
+      // Criar times padrão se não existirem
+      const existingTeams = await sql`SELECT COUNT(*) as count FROM teams`;
+      if (parseInt(existingTeams[0].count) === 0) {
+        console.log('🏢 Criando times padrão...');
+        
+        const defaultTeams = [
+          { name: 'TI', description: 'Equipe de Tecnologia da Informação' },
+          { name: 'Facilities', description: 'Equipe de Facilities e Infraestrutura' },
+          { name: 'Administrativo', description: 'Equipe Administrativa e Financeira' },
+          { name: 'Recursos Humanos', description: 'Equipe de Recursos Humanos' }
+        ];
+
+        for (const team of defaultTeams) {
+          await sql`
+            INSERT INTO teams (name, description)
+            VALUES (${team.name}, ${team.description})
+          `;
+          console.log(`✅ Time "${team.name}" criado`);
+        }
+      }
 
       console.log('✅ Banco de dados inicializado com autenticação segura');
       return true;
     } catch (error) {
       console.error('❌ Erro ao inicializar banco:', error);
       return false;
+    }
+  },
+
+  teams: {
+    async getAll() {
+      try {
+        const sql = await databaseService.getConnection();
+        const result = await sql`SELECT * FROM teams ORDER BY name`;
+        return { success: true, data: result };
+      } catch (error) {
+        console.error('Erro ao buscar times:', error);
+        return { success: false, error: error.message };
+      }
+    },
+
+    async create(teamData) {
+      try {
+        const sql = await databaseService.getConnection();
+        const result = await sql`
+          INSERT INTO teams (name, description)
+          VALUES (${teamData.name}, ${teamData.description || null})
+          RETURNING *
+        `;
+        return { success: true, data: result[0] };
+      } catch (error) {
+        console.error('Erro ao criar time:', error);
+        return { success: false, error: error.message };
+      }
     }
   },
 
@@ -151,15 +244,16 @@ const databaseService = {
         const passwordHash = await CryptoUtils.hashPassword(userData.password);
         
         const result = await sql`
-          INSERT INTO users (email, name, password_hash, company, photo)
+          INSERT INTO users (email, name, password_hash, company, photo, team_id)
           VALUES (
             ${userData.email}, 
             ${userData.name}, 
             ${passwordHash}, 
             ${userData.company || null}, 
-            ${userData.photo || null}
+            ${userData.photo || null},
+            ${userData.team_id || null}
           )
-          RETURNING id, email, name, company, photo, created_at, updated_at
+          RETURNING id, email, name, company, photo, team_id, created_at, updated_at
         `;
         return { success: true, data: result[0] };
       } catch (error) {
@@ -177,11 +271,13 @@ const databaseService = {
       try {
         const sql = await databaseService.getConnection();
         
-        // Buscar usuário com senha hash
+        // Buscar usuário com senha hash e informações do time
         const result = await sql`
-          SELECT id, email, name, password_hash, company, photo, created_at, updated_at
-          FROM users 
-          WHERE email = ${email} 
+          SELECT u.id, u.email, u.name, u.password_hash, u.company, u.photo, u.team_id,
+                 u.created_at, u.updated_at, t.name as team_name, t.description as team_description
+          FROM users u
+          LEFT JOIN teams t ON u.team_id = t.id
+          WHERE u.email = ${email} 
           LIMIT 1
         `;
         
@@ -212,9 +308,11 @@ const databaseService = {
       try {
         const sql = await databaseService.getConnection();
         const result = await sql`
-          SELECT id, email, name, company, photo, created_at, updated_at
-          FROM users 
-          WHERE email = ${email} 
+          SELECT u.id, u.email, u.name, u.company, u.photo, u.team_id,
+                 u.created_at, u.updated_at, t.name as team_name, t.description as team_description
+          FROM users u
+          LEFT JOIN teams t ON u.team_id = t.id
+          WHERE u.email = ${email} 
           LIMIT 1
         `;
         return { success: true, data: result[0] || null };
@@ -232,9 +330,10 @@ const databaseService = {
           SET name = ${updates.name}, 
               company = ${updates.company || null},
               photo = ${updates.photo || null},
+              team_id = ${updates.team_id || null},
               updated_at = CURRENT_TIMESTAMP
           WHERE id = ${id}
-          RETURNING id, email, name, company, photo, created_at, updated_at
+          RETURNING id, email, name, company, photo, team_id, created_at, updated_at
         `;
         return { success: true, data: result[0] };
       } catch (error) {
@@ -266,11 +365,11 @@ const databaseService = {
   },
 
   floors: {
-    async getAll(userId) {
+    async getAll(teamId) {
       try {
         const sql = await databaseService.getConnection();
         const floors = await sql`
-          SELECT * FROM floors WHERE user_id = ${userId} ORDER BY name
+          SELECT * FROM floors WHERE team_id = ${teamId} ORDER BY name
         `;
         
         for (let floor of floors) {
@@ -287,12 +386,12 @@ const databaseService = {
       }
     },
 
-    async create(floorData, userId) {
+    async create(floorData, teamId) {
       try {
         const sql = await databaseService.getConnection();
         const result = await sql`
-          INSERT INTO floors (name, description, user_id)
-          VALUES (${floorData.name}, ${floorData.description || null}, ${userId})
+          INSERT INTO floors (name, description, team_id)
+          VALUES (${floorData.name}, ${floorData.description || null}, ${teamId})
           RETURNING *
         `;
         return { success: true, data: result[0] };
@@ -302,7 +401,7 @@ const databaseService = {
       }
     },
 
-    async update(id, updates, userId) {
+    async update(id, updates, teamId) {
       try {
         const sql = await databaseService.getConnection();
         const result = await sql`
@@ -310,7 +409,7 @@ const databaseService = {
           SET name = ${updates.name}, 
               description = ${updates.description || null},
               updated_at = CURRENT_TIMESTAMP
-          WHERE id = ${id} AND user_id = ${userId}
+          WHERE id = ${id} AND team_id = ${teamId}
           RETURNING *
         `;
         return { success: true, data: result[0] };
@@ -320,12 +419,12 @@ const databaseService = {
       }
     },
 
-    async delete(id, userId) {
+    async delete(id, teamId) {
       try {
         const sql = await databaseService.getConnection();
         
         const assetsCheck = await sql`
-          SELECT COUNT(*) as count FROM assets WHERE floor_id = ${id} AND user_id = ${userId}
+          SELECT COUNT(*) as count FROM assets WHERE floor_id = ${id} AND team_id = ${teamId}
         `;
         
         if (parseInt(assetsCheck[0].count) > 0) {
@@ -336,7 +435,7 @@ const databaseService = {
         }
 
         await sql`
-          DELETE FROM floors WHERE id = ${id} AND user_id = ${userId}
+          DELETE FROM floors WHERE id = ${id} AND team_id = ${teamId}
         `;
         return { success: true };
       } catch (error) {
@@ -345,12 +444,12 @@ const databaseService = {
       }
     },
 
-    async getByName(name, userId) {
+    async getByName(name, teamId) {
       try {
         const sql = await databaseService.getConnection();
         const result = await sql`
           SELECT * FROM floors 
-          WHERE LOWER(name) LIKE LOWER(${`%${name}%`}) AND user_id = ${userId}
+          WHERE LOWER(name) LIKE LOWER(${`%${name}%`}) AND team_id = ${teamId}
           LIMIT 1
         `;
         return { success: true, data: result[0] || null };
@@ -362,12 +461,12 @@ const databaseService = {
   },
 
   rooms: {
-    async create(roomData, userId) {
+    async create(roomData, teamId) {
       try {
         const sql = await databaseService.getConnection();
         const result = await sql`
-          INSERT INTO rooms (name, description, floor_id, user_id)
-          VALUES (${roomData.name}, ${roomData.description || null}, ${roomData.floor_id}, ${userId})
+          INSERT INTO rooms (name, description, floor_id, team_id)
+          VALUES (${roomData.name}, ${roomData.description || null}, ${roomData.floor_id}, ${teamId})
           RETURNING *
         `;
         return { success: true, data: result[0] };
@@ -377,7 +476,7 @@ const databaseService = {
       }
     },
 
-    async update(id, updates, userId) {
+    async update(id, updates, teamId) {
       try {
         const sql = await databaseService.getConnection();
         const result = await sql`
@@ -386,7 +485,7 @@ const databaseService = {
               description = ${updates.description || null},
               floor_id = ${updates.floor_id},
               updated_at = CURRENT_TIMESTAMP
-          WHERE id = ${id} AND user_id = ${userId}
+          WHERE id = ${id} AND team_id = ${teamId}
           RETURNING *
         `;
         return { success: true, data: result[0] };
@@ -396,12 +495,12 @@ const databaseService = {
       }
     },
 
-    async delete(id, userId) {
+    async delete(id, teamId) {
       try {
         const sql = await databaseService.getConnection();
         
         const assetsCheck = await sql`
-          SELECT COUNT(*) as count FROM assets WHERE room_id = ${id} AND user_id = ${userId}
+          SELECT COUNT(*) as count FROM assets WHERE room_id = ${id} AND team_id = ${teamId}
         `;
         
         if (parseInt(assetsCheck[0].count) > 0) {
@@ -412,7 +511,7 @@ const databaseService = {
         }
 
         await sql`
-          DELETE FROM rooms WHERE id = ${id} AND user_id = ${userId}
+          DELETE FROM rooms WHERE id = ${id} AND team_id = ${teamId}
         `;
         return { success: true };
       } catch (error) {
@@ -423,11 +522,11 @@ const databaseService = {
   },
 
   assets: {
-    async getAll(userId) {
+    async getAll(teamId) {
       try {
         const sql = await databaseService.getConnection();
         const result = await sql`
-          SELECT * FROM assets WHERE user_id = ${userId} ORDER BY created_at DESC
+          SELECT * FROM assets WHERE team_id = ${teamId} ORDER BY created_at DESC
         `;
         return { success: true, data: result };
       } catch (error) {
@@ -436,19 +535,19 @@ const databaseService = {
       }
     },
 
-    async create(assetData, userId) {
+    async create(assetData, teamId) {
       try {
         const sql = await databaseService.getConnection();
         const result = await sql`
           INSERT INTO assets (
             name, code, category, description, value, status, 
-            floor_id, room_id, photo, supplier, serial_number, user_id
+            floor_id, room_id, photo, supplier, serial_number, team_id
           )
           VALUES (
             ${assetData.name}, ${assetData.code}, ${assetData.category || null},
             ${assetData.description || null}, ${assetData.value || null}, ${assetData.status},
             ${assetData.floor_id}, ${assetData.room_id || null}, ${assetData.photo || null},
-            ${assetData.supplier || null}, ${assetData.serial_number || null}, ${userId}
+            ${assetData.supplier || null}, ${assetData.serial_number || null}, ${teamId}
           )
           RETURNING *
         `;
@@ -459,7 +558,7 @@ const databaseService = {
       }
     },
 
-    async update(id, updates, userId) {
+    async update(id, updates, teamId) {
       try {
         const sql = await databaseService.getConnection();
         const result = await sql`
@@ -476,7 +575,7 @@ const databaseService = {
               supplier = ${updates.supplier || null},
               serial_number = ${updates.serial_number || null},
               updated_at = CURRENT_TIMESTAMP
-          WHERE id = ${id} AND user_id = ${userId}
+          WHERE id = ${id} AND team_id = ${teamId}
           RETURNING *
         `;
         return { success: true, data: result[0] };
@@ -486,11 +585,11 @@ const databaseService = {
       }
     },
 
-    async delete(id, userId) {
+    async delete(id, teamId) {
       try {
         const sql = await databaseService.getConnection();
         await sql`
-          DELETE FROM assets WHERE id = ${id} AND user_id = ${userId}
+          DELETE FROM assets WHERE id = ${id} AND team_id = ${teamId}
         `;
         return { success: true };
       } catch (error) {
@@ -509,11 +608,16 @@ const AuthProvider = ({ children }) => {
   const [connectionError, setConnectionError] = useState(null);
 
   // ============= FUNÇÃO PARA CRIAR ANDARES PADRÃO =============
-  const createDefaultFloors = async (userId) => {
+  const createDefaultFloors = async (teamId) => {
     try {
-      console.log('🏢 Verificando andares padrão para usuário:', userId);
+      if (!teamId) {
+        console.log('ℹ️ Usuário sem time definido, pulando criação de andares padrão');
+        return;
+      }
+
+      console.log('🏢 Verificando andares padrão para time:', teamId);
       
-      const existingFloors = await databaseService.floors.getAll(userId);
+      const existingFloors = await databaseService.floors.getAll(teamId);
       if (!existingFloors.success) {
         console.error('Erro ao buscar andares existentes');
         return;
@@ -545,11 +649,11 @@ const AuthProvider = ({ children }) => {
 
         if (!floorExists) {
           console.log(`🏢 Criando andar padrão: ${floorData.name}`);
-          const result = await databaseService.floors.create(floorData, userId);
+          const result = await databaseService.floors.create(floorData, teamId);
           
           if (result.success) {
             console.log(`✅ Andar "${floorData.name}" criado com sucesso`);
-            await createDefaultRooms(result.data.id, userId, floorData.name);
+            await createDefaultRooms(result.data.id, teamId, floorData.name);
           } else {
             console.error(`❌ Erro ao criar andar "${floorData.name}":`, result.error);
           }
@@ -563,7 +667,7 @@ const AuthProvider = ({ children }) => {
   };
 
   // ============= FUNÇÃO PARA CRIAR SALAS PADRÃO =============
-  const createDefaultRooms = async (floorId, userId, floorName) => {
+  const createDefaultRooms = async (floorId, teamId, floorName) => {
     try {
       let defaultRooms = [];
       
@@ -591,7 +695,7 @@ const AuthProvider = ({ children }) => {
         const roomResult = await databaseService.rooms.create({
           ...roomData,
           floor_id: floorId
-        }, userId);
+        }, teamId);
         
         if (roomResult.success) {
           console.log(`✅ Sala "${roomData.name}" criada no ${floorName}`);
@@ -631,7 +735,7 @@ const AuthProvider = ({ children }) => {
               setUser(userCheck.data);
               setProfile(userCheck.data);
               
-              await createDefaultFloors(userCheck.data.id);
+              await createDefaultFloors(userCheck.data.team_id);
             } else {
               localStorage.removeItem('asset_manager_user');
             }
@@ -651,7 +755,7 @@ const AuthProvider = ({ children }) => {
     initializeApp();
   }, []);
 
-  const signUp = async (email, password, name, company = '', photo = null) => {
+  const signUp = async (email, password, name, company = '', photo = null, team_id = null) => {
     if (!dbReady) {
       return { success: false, error: 'Banco de dados não disponível' };
     }
@@ -679,7 +783,8 @@ const AuthProvider = ({ children }) => {
         password,
         name,
         company,
-        photo
+        photo,
+        team_id
       });
 
       if (result.success) {
@@ -688,7 +793,7 @@ const AuthProvider = ({ children }) => {
         setProfile(userData);
         localStorage.setItem('asset_manager_user', JSON.stringify(userData));
         
-        await createDefaultFloors(userData.id);
+        await createDefaultFloors(userData.team_id);
         
         return { success: true, data: { user: userData } };
       } else {
@@ -723,7 +828,7 @@ const AuthProvider = ({ children }) => {
         setProfile(userData);
         localStorage.setItem('asset_manager_user', JSON.stringify(userData));
         
-        await createDefaultFloors(userData.id);
+        await createDefaultFloors(userData.team_id);
         
         return { success: true, data: { user: userData } };
       } else {
@@ -949,6 +1054,7 @@ const AuthModal = ({ isOpen, onClose }) => {
   const [message, setMessage] = useState('');
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
   const [userPhoto, setUserPhoto] = useState(null);
+  const [teams, setTeams] = useState([]);
   const { signIn, signUp, dbReady } = useAuth();
   const fileInputRef = useRef(null);
 
@@ -956,8 +1062,27 @@ const AuthModal = ({ isOpen, onClose }) => {
     email: '',
     password: '',
     name: '',
-    company: ''
+    company: '',
+    team_id: ''
   });
+
+  // Carregar times disponíveis
+  useEffect(() => {
+    const loadTeams = async () => {
+      if (dbReady && !isLogin) {
+        try {
+          const result = await databaseService.teams.getAll();
+          if (result.success) {
+            setTeams(result.data);
+          }
+        } catch (error) {
+          console.error('Erro ao carregar times:', error);
+        }
+      }
+    };
+
+    loadTeams();
+  }, [dbReady, isLogin]);
 
   const PhotoUtils = {
     fileToBase64: (file) => {
@@ -1104,7 +1229,7 @@ const AuthModal = ({ isOpen, onClose }) => {
       if (isLogin) {
         result = await signIn(formData.email, formData.password);
       } else {
-        result = await signUp(formData.email, formData.password, formData.name, formData.company, userPhoto);
+        result = await signUp(formData.email, formData.password, formData.name, formData.company, userPhoto, formData.team_id);
       }
 
       if (result.success) {
@@ -1242,6 +1367,28 @@ const AuthModal = ({ isOpen, onClose }) => {
                     placeholder="Nome da empresa"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    🏢 Time/Equipe *
+                  </label>
+                  <select
+                    required
+                    value={formData.team_id}
+                    onChange={(e) => setFormData({...formData, team_id: e.target.value})}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="">Selecione seu time</option>
+                    {teams.map(team => (
+                      <option key={team.id} value={team.id}>
+                        {team.name} - {team.description}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    💡 Você só verá ativos do seu time
+                  </p>
+                </div>
               </>
             )}
 
@@ -1302,7 +1449,7 @@ const AuthModal = ({ isOpen, onClose }) => {
                 setIsLogin(!isLogin);
                 setMessage('');
                 setUserPhoto(null);
-                setFormData({ email: '', password: '', name: '', company: '' });
+                setFormData({ email: '', password: '', name: '', company: '', team_id: '' });
               }}
               className="text-blue-600 hover:text-blue-700 font-medium"
             >
@@ -1564,8 +1711,10 @@ const ProfilePage = () => {
   const [formData, setFormData] = useState({
     name: user?.name || '',
     company: user?.company || '',
-    photo: user?.photo || null
+    photo: user?.photo || null,
+    team_id: user?.team_id || null
   });
+  const [teams, setTeams] = useState([]);
   const [passwordData, setPasswordData] = useState({
     newPassword: '',
     confirmPassword: ''
@@ -1573,16 +1722,33 @@ const ProfilePage = () => {
   const [message, setMessage] = useState('');
   const fileInputRef = useRef(null);
 
-  // Sincronizar formData com dados do usuário
+  // Sincronizar formData com dados do usuário e carregar times
   useEffect(() => {
     if (user) {
       setFormData({
         name: user.name || '',
         company: user.company || '',
-        photo: user.photo || null
+        photo: user.photo || null,
+        team_id: user.team_id || null
       });
     }
   }, [user]);
+
+  // Carregar times disponíveis
+  useEffect(() => {
+    const loadTeams = async () => {
+      try {
+        const result = await databaseService.teams.getAll();
+        if (result.success) {
+          setTeams(result.data);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar times:', error);
+      }
+    };
+
+    loadTeams();
+  }, []);
 
   const handlePhotoCapture = async () => {
     try {
@@ -1728,6 +1894,11 @@ const ProfilePage = () => {
                     <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium">
                       📅 Desde {new Date(user?.created_at).toLocaleDateString('pt-BR')}
                     </span>
+                    {user?.team_name && (
+                      <span className="px-3 py-1 bg-blue-400/20 rounded-full text-sm font-medium">
+                        🏢 {user.team_name}
+                      </span>
+                    )}
                     <span className="px-3 py-1 bg-green-400/20 rounded-full text-sm font-medium">
                       🔒 Login Seguro
                     </span>
@@ -1760,7 +1931,8 @@ const ProfilePage = () => {
                           setFormData({
                             name: user?.name || '',
                             company: user?.company || '',
-                            photo: user?.photo || null
+                            photo: user?.photo || null,
+                            team_id: user?.team_id || null
                           });
                         }}
                         className="bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-xl transition-colors font-medium"
@@ -1826,6 +1998,25 @@ const ProfilePage = () => {
                     placeholder="Nome da empresa (opcional)"
                   />
                 </div>
+                
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-3">🏢 Time/Equipe</label>
+                  <select
+                    value={formData.team_id || ''}
+                    onChange={(e) => setFormData({ ...formData, team_id: e.target.value || null })}
+                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-medium"
+                  >
+                    <option value="">Selecione um time</option>
+                    {teams.map(team => (
+                      <option key={team.id} value={team.id}>
+                        {team.name} - {team.description}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    💡 Alterar o time afetará quais ativos você pode ver
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1849,6 +2040,12 @@ const ProfilePage = () => {
                         <p className="text-blue-900 font-bold">{user.company}</p>
                       </div>
                     )}
+                    <div>
+                      <label className="text-sm font-medium text-blue-700">Time:</label>
+                      <p className="text-blue-900 font-bold">
+                        {user?.team_name ? `${user.team_name} - ${user.team_description}` : 'Nenhum time definido'}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -2055,9 +2252,16 @@ const AssetControlSystem = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
+      if (!user.team_id) {
+        console.warn('Usuário sem time definido');
+        setFloors([]);
+        setAssets([]);
+        return;
+      }
+
       const [floorsResult, assetsResult] = await Promise.all([
-        databaseService.floors.getAll(user.id),
-        databaseService.assets.getAll(user.id)
+        databaseService.floors.getAll(user.team_id),
+        databaseService.assets.getAll(user.team_id)
       ]);
 
       if (floorsResult.success) {
@@ -2119,9 +2323,9 @@ const AssetControlSystem = () => {
       let result;
 
       if (editingAsset) {
-        result = await databaseService.assets.update(editingAsset.id, assetForm, user.id);
+        result = await databaseService.assets.update(editingAsset.id, assetForm, user.team_id);
       } else {
-        result = await databaseService.assets.create(assetForm, user.id);
+        result = await databaseService.assets.create(assetForm, user.team_id);
       }
       
       if (result.success) {
@@ -2143,7 +2347,7 @@ const AssetControlSystem = () => {
     if (confirm(`Tem certeza que deseja excluir o ativo "${asset.name}"?`)) {
       try {
         setIsLoading(true);
-        const result = await databaseService.assets.delete(asset.id, user.id);
+        const result = await databaseService.assets.delete(asset.id, user.team_id);
         
         if (result.success) {
           await loadData();
@@ -2172,7 +2376,7 @@ const AssetControlSystem = () => {
     if (confirm(`Tem certeza que deseja excluir a sala "${room.name}"?`)) {
       try {
         setIsLoading(true);
-        const result = await databaseService.rooms.delete(room.id, user.id);
+        const result = await databaseService.rooms.delete(room.id, user.team_id);
         
         if (result.success) {
           await loadData();
@@ -2198,9 +2402,9 @@ const AssetControlSystem = () => {
       let result;
 
       if (editingRoom) {
-        result = await databaseService.rooms.update(editingRoom.id, roomForm, user.id);
+        result = await databaseService.rooms.update(editingRoom.id, roomForm, user.team_id);
       } else {
-        result = await databaseService.rooms.create(roomForm, user.id);
+        result = await databaseService.rooms.create(roomForm, user.team_id);
       }
       
       if (result.success) {
@@ -2226,7 +2430,7 @@ const AssetControlSystem = () => {
 
     try {
       setIsLoading(true);
-      const result = await databaseService.floors.create(floorForm, user.id);
+      const result = await databaseService.floors.create(floorForm, user.team_id);
       
       if (result.success) {
         await loadData();
@@ -2416,7 +2620,30 @@ const AssetControlSystem = () => {
 
         {/* Conteúdo Principal */}
         <div className="max-w-7xl mx-auto px-4 py-8">
-          {/* Perfil só aparece quando clicado */}
+          {/* Aviso para usuários sem time */}
+          {!user?.team_id && (
+            <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-3xl p-6 mb-8 shadow-lg">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-lg">
+                  <Icons.AlertCircle />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-orange-900 mb-2">⚠️ Time não definido</h3>
+                  <p className="text-orange-700 font-medium mb-3">
+                    Você precisa estar em um time para gerenciar ativos. Clique no seu perfil para selecionar um time.
+                  </p>
+                  <button
+                    onClick={() => setActiveTab('profile')}
+                    className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+                  >
+                    🏢 Selecionar Time
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Perfil só aparece quando clicado */
           {activeTab === 'profile' && (
             <div className="mb-8">
               <div className="flex items-center justify-between mb-6">
