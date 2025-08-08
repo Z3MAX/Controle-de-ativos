@@ -1,56 +1,175 @@
-import { getConnection } from '../lib/db.js';
+import { getDB } from './lib/db.js';
 
+// Serviços de banco de dados
 export const databaseService = {
   // =================== USUÁRIOS ===================
   users: {
     async create(userData) {
       try {
-        const sql = await getConnection();
-        if (!sql) throw new Error('Conexão não disponível');
-
-        const result = await sql`
-          INSERT INTO users (email, name, company)
-          VALUES (${userData.email}, ${userData.name}, ${userData.company || null})
-          RETURNING *
-        `;
-        return { success: true, data: result[0] };
+        const db = getDB();
+        const transaction = db.transaction(['users'], 'readwrite');
+        const store = transaction.objectStore('users');
+        
+        const user = {
+          ...userData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        return new Promise((resolve, reject) => {
+          const request = store.add(user);
+          
+          request.onsuccess = () => {
+            user.id = request.result;
+            resolve({ success: true, data: user });
+          };
+          
+          request.onerror = () => {
+            reject({ success: false, error: request.error });
+          };
+        });
       } catch (error) {
-        console.error('Erro ao criar usuário:', error);
         return { success: false, error: error.message };
       }
     },
 
     async findByEmail(email) {
       try {
-        const sql = await getConnection();
-        if (!sql) throw new Error('Conexão não disponível');
-
-        const result = await sql`
-          SELECT * FROM users WHERE email = ${email} LIMIT 1
-        `;
-        return { success: true, data: result[0] || null };
+        const db = getDB();
+        const transaction = db.transaction(['users'], 'readonly');
+        const store = transaction.objectStore('users');
+        const index = store.index('email');
+        
+        return new Promise((resolve, reject) => {
+          const request = index.get(email);
+          
+          request.onsuccess = () => {
+            resolve({ success: true, data: request.result });
+          };
+          
+          request.onerror = () => {
+            reject({ success: false, error: request.error });
+          };
+        });
       } catch (error) {
-        console.error('Erro ao buscar usuário:', error);
         return { success: false, error: error.message };
       }
     },
 
-    async update(id, updates) {
+    async update(userId, userData) {
       try {
-        const sql = await getConnection();
-        if (!sql) throw new Error('Conexão não disponível');
-
-        const result = await sql`
-          UPDATE users 
-          SET name = ${updates.name}, 
-              company = ${updates.company || null},
-              updated_at = CURRENT_TIMESTAMP
-          WHERE id = ${id}
-          RETURNING *
-        `;
-        return { success: true, data: result[0] };
+        const db = getDB();
+        const transaction = db.transaction(['users'], 'readwrite');
+        const store = transaction.objectStore('users');
+        
+        return new Promise((resolve, reject) => {
+          const getRequest = store.get(userId);
+          
+          getRequest.onsuccess = () => {
+            const user = getRequest.result;
+            if (!user) {
+              resolve({ success: false, error: 'Usuário não encontrado' });
+              return;
+            }
+            
+            const updatedUser = {
+              ...user,
+              ...userData,
+              updated_at: new Date().toISOString()
+            };
+            
+            const putRequest = store.put(updatedUser);
+            
+            putRequest.onsuccess = () => {
+              resolve({ success: true, data: updatedUser });
+            };
+            
+            putRequest.onerror = () => {
+              reject({ success: false, error: putRequest.error });
+            };
+          };
+          
+          getRequest.onerror = () => {
+            reject({ success: false, error: getRequest.error });
+          };
+        });
       } catch (error) {
-        console.error('Erro ao atualizar usuário:', error);
+        return { success: false, error: error.message };
+      }
+    }
+  },
+
+  // =================== EQUIPES ===================
+  teams: {
+    async getAll() {
+      try {
+        const db = getDB();
+        const transaction = db.transaction(['teams'], 'readonly');
+        const store = transaction.objectStore('teams');
+        
+        return new Promise((resolve, reject) => {
+          const request = store.getAll();
+          
+          request.onsuccess = () => {
+            resolve({ success: true, data: request.result });
+          };
+          
+          request.onerror = () => {
+            reject({ success: false, error: request.error });
+          };
+        });
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    },
+
+    async getById(teamId) {
+      try {
+        const db = getDB();
+        const transaction = db.transaction(['teams'], 'readonly');
+        const store = transaction.objectStore('teams');
+        
+        return new Promise((resolve, reject) => {
+          const request = store.get(teamId);
+          
+          request.onsuccess = () => {
+            resolve({ success: true, data: request.result });
+          };
+          
+          request.onerror = () => {
+            reject({ success: false, error: request.error });
+          };
+        });
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    },
+
+    async create(teamData) {
+      try {
+        const db = getDB();
+        const transaction = db.transaction(['teams'], 'readwrite');
+        const store = transaction.objectStore('teams');
+        
+        const team = {
+          ...teamData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        return new Promise((resolve, reject) => {
+          const request = store.add(team);
+          
+          request.onsuccess = () => {
+            team.id = request.result;
+            resolve({ success: true, data: team });
+          };
+          
+          request.onerror = () => {
+            reject({ success: false, error: request.error });
+          };
+        });
+      } catch (error) {
         return { success: false, error: error.message };
       }
     }
@@ -58,83 +177,95 @@ export const databaseService = {
 
   // =================== ANDARES ===================
   floors: {
-    async getAll(userId) {
+    async getAll(teamId) {
       try {
-        const sql = await getConnection();
-        if (!sql) throw new Error('Conexão não disponível');
-
-        const floors = await sql`
-          SELECT * FROM floors 
-          WHERE user_id = ${userId}
-          ORDER BY name
-        `;
+        const db = getDB();
+        const transaction = db.transaction(['floors', 'rooms'], 'readonly');
+        const floorStore = transaction.objectStore('floors');
+        const roomStore = transaction.objectStore('rooms');
         
-        // Buscar salas para cada andar
-        for (let floor of floors) {
-          const rooms = await sql`
-            SELECT * FROM rooms 
-            WHERE floor_id = ${floor.id}
-            ORDER BY name
-          `;
-          floor.rooms = rooms;
-        }
+        return new Promise((resolve, reject) => {
+          let floors = [];
+          
+          if (teamId) {
+            // Buscar apenas andares da equipe específica
+            const index = floorStore.index('team_id');
+            const request = index.getAll(teamId);
+            
+            request.onsuccess = async () => {
+              floors = request.result;
+              // Carregar salas para cada andar
+              await this.loadRoomsForFloors(floors, roomStore, teamId);
+              resolve({ success: true, data: floors });
+            };
+          } else {
+            // Buscar todos os andares
+            const request = floorStore.getAll();
+            
+            request.onsuccess = async () => {
+              floors = request.result;
+              // Carregar salas para cada andar
+              await this.loadRoomsForFloors(floors, roomStore);
+              resolve({ success: true, data: floors });
+            };
+          }
+          
+          floorStore.onerror = () => {
+            reject({ success: false, error: 'Erro ao carregar andares' });
+          };
+        });
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    },
+
+    async loadRoomsForFloors(floors, roomStore, teamId = null) {
+      for (const floor of floors) {
+        const rooms = await new Promise((resolve) => {
+          if (teamId) {
+            const index = roomStore.index('team_id');
+            const request = index.getAll(teamId);
+            request.onsuccess = () => {
+              // Filtrar salas do andar específico
+              const floorRooms = request.result.filter(room => room.floor_id === floor.id);
+              resolve(floorRooms);
+            };
+          } else {
+            const index = roomStore.index('floor_id');
+            const request = index.getAll(floor.id);
+            request.onsuccess = () => resolve(request.result);
+          }
+        });
+        floor.rooms = rooms || [];
+      }
+    },
+
+    async create(floorData, teamId) {
+      try {
+        const db = getDB();
+        const transaction = db.transaction(['floors'], 'readwrite');
+        const store = transaction.objectStore('floors');
         
-        return { success: true, data: floors };
+        const floor = {
+          ...floorData,
+          team_id: teamId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        return new Promise((resolve, reject) => {
+          const request = store.add(floor);
+          
+          request.onsuccess = () => {
+            floor.id = request.result;
+            resolve({ success: true, data: floor });
+          };
+          
+          request.onerror = () => {
+            reject({ success: false, error: request.error });
+          };
+        });
       } catch (error) {
-        console.error('Erro ao buscar andares:', error);
-        return { success: false, error: error.message };
-      }
-    },
-
-    async create(floorData, userId) {
-      try {
-        const sql = await getConnection();
-        if (!sql) throw new Error('Conexão não disponível');
-
-        const result = await sql`
-          INSERT INTO floors (name, description, user_id)
-          VALUES (${floorData.name}, ${floorData.description || null}, ${userId})
-          RETURNING *
-        `;
-        return { success: true, data: result[0] };
-      } catch (error) {
-        console.error('Erro ao criar andar:', error);
-        return { success: false, error: error.message };
-      }
-    },
-
-    async update(id, updates, userId) {
-      try {
-        const sql = await getConnection();
-        if (!sql) throw new Error('Conexão não disponível');
-
-        const result = await sql`
-          UPDATE floors 
-          SET name = ${updates.name}, 
-              description = ${updates.description || null},
-              updated_at = CURRENT_TIMESTAMP
-          WHERE id = ${id} AND user_id = ${userId}
-          RETURNING *
-        `;
-        return { success: true, data: result[0] };
-      } catch (error) {
-        console.error('Erro ao atualizar andar:', error);
-        return { success: false, error: error.message };
-      }
-    },
-
-    async delete(id, userId) {
-      try {
-        const sql = await getConnection();
-        if (!sql) throw new Error('Conexão não disponível');
-
-        await sql`
-          DELETE FROM floors 
-          WHERE id = ${id} AND user_id = ${userId}
-        `;
-        return { success: true };
-      } catch (error) {
-        console.error('Erro ao deletar andar:', error);
         return { success: false, error: error.message };
       }
     }
@@ -142,55 +273,122 @@ export const databaseService = {
 
   // =================== SALAS ===================
   rooms: {
-    async create(roomData, userId) {
+    async create(roomData, teamId) {
       try {
-        const sql = await getConnection();
-        if (!sql) throw new Error('Conexão não disponível');
-
-        const result = await sql`
-          INSERT INTO rooms (name, description, floor_id, user_id)
-          VALUES (${roomData.name}, ${roomData.description || null}, ${roomData.floor_id}, ${userId})
-          RETURNING *
-        `;
-        return { success: true, data: result[0] };
+        const db = getDB();
+        const transaction = db.transaction(['rooms'], 'readwrite');
+        const store = transaction.objectStore('rooms');
+        
+        const room = {
+          ...roomData,
+          team_id: teamId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        return new Promise((resolve, reject) => {
+          const request = store.add(room);
+          
+          request.onsuccess = () => {
+            room.id = request.result;
+            resolve({ success: true, data: room });
+          };
+          
+          request.onerror = () => {
+            reject({ success: false, error: request.error });
+          };
+        });
       } catch (error) {
-        console.error('Erro ao criar sala:', error);
         return { success: false, error: error.message };
       }
     },
 
-    async update(id, updates, userId) {
+    async update(roomId, roomData, teamId) {
       try {
-        const sql = await getConnection();
-        if (!sql) throw new Error('Conexão não disponível');
-
-        const result = await sql`
-          UPDATE rooms 
-          SET name = ${updates.name}, 
-              description = ${updates.description || null},
-              updated_at = CURRENT_TIMESTAMP
-          WHERE id = ${id} AND user_id = ${userId}
-          RETURNING *
-        `;
-        return { success: true, data: result[0] };
+        const db = getDB();
+        const transaction = db.transaction(['rooms'], 'readwrite');
+        const store = transaction.objectStore('rooms');
+        
+        return new Promise((resolve, reject) => {
+          const getRequest = store.get(roomId);
+          
+          getRequest.onsuccess = () => {
+            const room = getRequest.result;
+            if (!room) {
+              resolve({ success: false, error: 'Sala não encontrada' });
+              return;
+            }
+            
+            // Verificar se a sala pertence à equipe
+            if (room.team_id !== teamId) {
+              resolve({ success: false, error: 'Acesso negado' });
+              return;
+            }
+            
+            const updatedRoom = {
+              ...room,
+              ...roomData,
+              updated_at: new Date().toISOString()
+            };
+            
+            const putRequest = store.put(updatedRoom);
+            
+            putRequest.onsuccess = () => {
+              resolve({ success: true, data: updatedRoom });
+            };
+            
+            putRequest.onerror = () => {
+              reject({ success: false, error: putRequest.error });
+            };
+          };
+          
+          getRequest.onerror = () => {
+            reject({ success: false, error: getRequest.error });
+          };
+        });
       } catch (error) {
-        console.error('Erro ao atualizar sala:', error);
         return { success: false, error: error.message };
       }
     },
 
-    async delete(id, userId) {
+    async delete(roomId, teamId) {
       try {
-        const sql = await getConnection();
-        if (!sql) throw new Error('Conexão não disponível');
-
-        await sql`
-          DELETE FROM rooms 
-          WHERE id = ${id} AND user_id = ${userId}
-        `;
-        return { success: true };
+        const db = getDB();
+        const transaction = db.transaction(['rooms'], 'readwrite');
+        const store = transaction.objectStore('rooms');
+        
+        return new Promise((resolve, reject) => {
+          const getRequest = store.get(roomId);
+          
+          getRequest.onsuccess = () => {
+            const room = getRequest.result;
+            if (!room) {
+              resolve({ success: false, error: 'Sala não encontrada' });
+              return;
+            }
+            
+            // Verificar se a sala pertence à equipe
+            if (room.team_id !== teamId) {
+              resolve({ success: false, error: 'Acesso negado' });
+              return;
+            }
+            
+            const deleteRequest = store.delete(roomId);
+            
+            deleteRequest.onsuccess = () => {
+              resolve({ success: true });
+            };
+            
+            deleteRequest.onerror = () => {
+              reject({ success: false, error: deleteRequest.error });
+            };
+          };
+          
+          getRequest.onerror = () => {
+            reject({ success: false, error: getRequest.error });
+          };
+        });
       } catch (error) {
-        console.error('Erro ao deletar sala:', error);
         return { success: false, error: error.message };
       }
     }
@@ -198,115 +396,182 @@ export const databaseService = {
 
   // =================== ATIVOS ===================
   assets: {
-    async getAll(userId) {
+    async getAll(teamId) {
       try {
-        const sql = await getConnection();
-        if (!sql) throw new Error('Conexão não disponível');
-
-        const result = await sql`
-          SELECT * FROM assets 
-          WHERE user_id = ${userId}
-          ORDER BY created_at DESC
-        `;
-        return { success: true, data: result };
-      } catch (error) {
-        console.error('Erro ao buscar ativos:', error);
-        return { success: false, error: error.message };
-      }
-    },
-
-    async create(assetData, userId) {
-      try {
-        const sql = await getConnection();
-        if (!sql) throw new Error('Conexão não disponível');
-
-        const result = await sql`
-          INSERT INTO assets (
-            name, code, category, description, value, status, 
-            floor_id, room_id, photo, supplier, serial_number, user_id
-          )
-          VALUES (
-            ${assetData.name}, ${assetData.code}, ${assetData.category || null},
-            ${assetData.description || null}, ${assetData.value || null}, ${assetData.status},
-            ${assetData.floor_id}, ${assetData.room_id || null}, ${assetData.photo || null},
-            ${assetData.supplier || null}, ${assetData.serial_number || null}, ${userId}
-          )
-          RETURNING *
-        `;
-        return { success: true, data: result[0] };
-      } catch (error) {
-        console.error('Erro ao criar ativo:', error);
-        return { success: false, error: error.message };
-      }
-    },
-
-    async update(id, updates, userId) {
-      try {
-        const sql = await getConnection();
-        if (!sql) throw new Error('Conexão não disponível');
-
-        const result = await sql`
-          UPDATE assets 
-          SET name = ${updates.name}, 
-              code = ${updates.code},
-              category = ${updates.category || null},
-              description = ${updates.description || null},
-              value = ${updates.value || null},
-              status = ${updates.status},
-              floor_id = ${updates.floor_id},
-              room_id = ${updates.room_id || null},
-              photo = ${updates.photo || null},
-              supplier = ${updates.supplier || null},
-              serial_number = ${updates.serial_number || null},
-              updated_at = CURRENT_TIMESTAMP
-          WHERE id = ${id} AND user_id = ${userId}
-          RETURNING *
-        `;
-        return { success: true, data: result[0] };
-      } catch (error) {
-        console.error('Erro ao atualizar ativo:', error);
-        return { success: false, error: error.message };
-      }
-    },
-
-    async delete(id, userId) {
-      try {
-        const sql = await getConnection();
-        if (!sql) throw new Error('Conexão não disponível');
-
-        await sql`
-          DELETE FROM assets 
-          WHERE id = ${id} AND user_id = ${userId}
-        `;
-        return { success: true };
-      } catch (error) {
-        console.error('Erro ao deletar ativo:', error);
-        return { success: false, error: error.message };
-      }
-    },
-
-    async checkCodeExists(code, excludeId = null, userId) {
-      try {
-        const sql = await getConnection();
-        if (!sql) throw new Error('Conexão não disponível');
-
-        let query;
-        if (excludeId) {
-          query = await sql`
-            SELECT COUNT(*) as count FROM assets 
-            WHERE code = ${code} AND id != ${excludeId} AND user_id = ${userId}
-          `;
-        } else {
-          query = await sql`
-            SELECT COUNT(*) as count FROM assets 
-            WHERE code = ${code} AND user_id = ${userId}
-          `;
-        }
+        const db = getDB();
+        const transaction = db.transaction(['assets'], 'readonly');
+        const store = transaction.objectStore('assets');
         
-        const exists = parseInt(query[0].count) > 0;
-        return { success: true, exists };
+        return new Promise((resolve, reject) => {
+          if (teamId) {
+            const index = store.index('team_id');
+            const request = index.getAll(teamId);
+            
+            request.onsuccess = () => {
+              resolve({ success: true, data: request.result });
+            };
+          } else {
+            const request = store.getAll();
+            
+            request.onsuccess = () => {
+              resolve({ success: true, data: request.result });
+            };
+          }
+          
+          store.onerror = () => {
+            reject({ success: false, error: 'Erro ao carregar ativos' });
+          };
+        });
       } catch (error) {
-        console.error('Erro ao verificar código:', error);
+        return { success: false, error: error.message };
+      }
+    },
+
+    async create(assetData, teamId, userId) {
+      try {
+        const db = getDB();
+        const transaction = db.transaction(['assets'], 'readwrite');
+        const store = transaction.objectStore('assets');
+        
+        const asset = {
+          ...assetData,
+          team_id: teamId,
+          user_id: userId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        return new Promise((resolve, reject) => {
+          const request = store.add(asset);
+          
+          request.onsuccess = () => {
+            asset.id = request.result;
+            resolve({ success: true, data: asset });
+          };
+          
+          request.onerror = () => {
+            reject({ success: false, error: request.error });
+          };
+        });
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    },
+
+    async update(assetId, assetData, teamId, userId) {
+      try {
+        const db = getDB();
+        const transaction = db.transaction(['assets'], 'readwrite');
+        const store = transaction.objectStore('assets');
+        
+        return new Promise((resolve, reject) => {
+          const getRequest = store.get(assetId);
+          
+          getRequest.onsuccess = () => {
+            const asset = getRequest.result;
+            if (!asset) {
+              resolve({ success: false, error: 'Ativo não encontrado' });
+              return;
+            }
+            
+            // Verificar se o ativo pertence à equipe
+            if (asset.team_id !== teamId) {
+              resolve({ success: false, error: 'Acesso negado' });
+              return;
+            }
+            
+            const updatedAsset = {
+              ...asset,
+              ...assetData,
+              updated_at: new Date().toISOString()
+            };
+            
+            const putRequest = store.put(updatedAsset);
+            
+            putRequest.onsuccess = () => {
+              resolve({ success: true, data: updatedAsset });
+            };
+            
+            putRequest.onerror = () => {
+              reject({ success: false, error: putRequest.error });
+            };
+          };
+          
+          getRequest.onerror = () => {
+            reject({ success: false, error: getRequest.error });
+          };
+        });
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    },
+
+    async delete(assetId, teamId) {
+      try {
+        const db = getDB();
+        const transaction = db.transaction(['assets'], 'readwrite');
+        const store = transaction.objectStore('assets');
+        
+        return new Promise((resolve, reject) => {
+          const getRequest = store.get(assetId);
+          
+          getRequest.onsuccess = () => {
+            const asset = getRequest.result;
+            if (!asset) {
+              resolve({ success: false, error: 'Ativo não encontrado' });
+              return;
+            }
+            
+            // Verificar se o ativo pertence à equipe
+            if (asset.team_id !== teamId) {
+              resolve({ success: false, error: 'Acesso negado' });
+              return;
+            }
+            
+            const deleteRequest = store.delete(assetId);
+            
+            deleteRequest.onsuccess = () => {
+              resolve({ success: true });
+            };
+            
+            deleteRequest.onerror = () => {
+              reject({ success: false, error: deleteRequest.error });
+            };
+          };
+          
+          getRequest.onerror = () => {
+            reject({ success: false, error: getRequest.error });
+          };
+        });
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    },
+
+    async checkCodeExists(code, excludeId = null, teamId) {
+      try {
+        const db = getDB();
+        const transaction = db.transaction(['assets'], 'readonly');
+        const store = transaction.objectStore('assets');
+        const index = store.index('team_id');
+        
+        return new Promise((resolve, reject) => {
+          const request = index.getAll(teamId);
+          
+          request.onsuccess = () => {
+            const assets = request.result;
+            const exists = assets.some(asset => 
+              asset.code === code && 
+              (excludeId === null || asset.id !== excludeId)
+            );
+            resolve({ success: true, exists });
+          };
+          
+          request.onerror = () => {
+            reject({ success: false, error: request.error });
+          };
+        });
+      } catch (error) {
         return { success: false, error: error.message };
       }
     }
