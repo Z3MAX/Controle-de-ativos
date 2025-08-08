@@ -1,182 +1,126 @@
-// Configuração e conexão com PostgreSQL (NeonDB)
+// Configuração simplificada para evitar problemas de build
+let sql = null;
 
-const DATABASE_URL = import.meta.env.VITE_DATABASE_URL;
-
-let db;
-
-// Função para testar a conexão
-export const testConnection = async () => {
+// Função para inicializar a conexão apenas quando necessário
+const initConnection = async () => {
+  if (sql) return sql;
+  
   try {
-    if (!DATABASE_URL) {
-      console.error('VITE_DATABASE_URL não configurado');
+    if (typeof window !== 'undefined' && import.meta.env.VITE_DATABASE_URL) {
+      const { neon } = await import('@neondatabase/serverless');
+      sql = neon(import.meta.env.VITE_DATABASE_URL);
+      return sql;
+    }
+    return null;
+  } catch (error) {
+    console.error('Erro ao inicializar conexão:', error);
+    return null;
+  }
+};
+
+// Exportar a conexão para uso direto (compatibilidade)
+export { sql };
+
+// Função para testar conexão
+export async function testConnection() {
+  try {
+    const connection = await initConnection();
+    if (!connection) {
+      console.log('❌ Variável VITE_DATABASE_URL não configurada');
       return false;
     }
 
-    // Em um ambiente de produção com PostgreSQL, você usaria uma biblioteca como 'pg'
-    // Para este exemplo, vamos simular usando IndexedDB como fallback
-    return await initializeIndexedDB();
-  } catch (error) {
-    console.error('Erro ao testar conexão:', error);
-    return false;
-  }
-};
-
-// Inicializar IndexedDB como fallback
-const initializeIndexedDB = async () => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('AssetManagerDB', 2);
-    
-    request.onerror = () => {
-      reject(request.error);
-    };
-    
-    request.onsuccess = () => {
-      db = request.result;
-      resolve(true);
-    };
-    
-    request.onupgradeneeded = (event) => {
-      db = event.target.result;
-      
-      // Criar tabela de usuários
-      if (!db.objectStoreNames.contains('users')) {
-        const userStore = db.createObjectStore('users', { keyPath: 'id', autoIncrement: true });
-        userStore.createIndex('email', 'email', { unique: true });
-      }
-      
-      // Criar tabela de equipes
-      if (!db.objectStoreNames.contains('teams')) {
-        const teamStore = db.createObjectStore('teams', { keyPath: 'id', autoIncrement: true });
-        teamStore.createIndex('name', 'name', { unique: false });
-      }
-      
-      // Criar tabela de andares
-      if (!db.objectStoreNames.contains('floors')) {
-        const floorStore = db.createObjectStore('floors', { keyPath: 'id', autoIncrement: true });
-        floorStore.createIndex('team_id', 'team_id', { unique: false });
-      }
-      
-      // Criar tabela de salas
-      if (!db.objectStoreNames.contains('rooms')) {
-        const roomStore = db.createObjectStore('rooms', { keyPath: 'id', autoIncrement: true });
-        roomStore.createIndex('floor_id', 'floor_id', { unique: false });
-        roomStore.createIndex('team_id', 'team_id', { unique: false });
-      }
-      
-      // Criar tabela de ativos
-      if (!db.objectStoreNames.contains('assets')) {
-        const assetStore = db.createObjectStore('assets', { keyPath: 'id', autoIncrement: true });
-        assetStore.createIndex('code', 'code', { unique: false });
-        assetStore.createIndex('team_id', 'team_id', { unique: false });
-        assetStore.createIndex('user_id', 'user_id', { unique: false });
-      }
-    };
-  });
-};
-
-// Inicializar banco de dados
-export const initializeDatabase = async () => {
-  try {
-    const connected = await testConnection();
-    if (!connected) return false;
-    
-    // Criar equipes padrão se não existirem
-    await createDefaultTeams();
-    
+    const result = await connection`SELECT NOW() as current_time`;
+    console.log('✅ Conexão com NeonDB estabelecida:', result[0].current_time);
     return true;
   } catch (error) {
-    console.error('Erro ao inicializar banco:', error);
+    console.error('❌ Erro ao conectar com NeonDB:', error);
     return false;
   }
-};
+}
 
-// Criar equipes padrão
-const createDefaultTeams = async () => {
+// Função para obter conexão
+export async function getConnection() {
+  return await initConnection();
+}
+
+// Função para inicializar o banco (criar tabelas se não existirem)
+export async function initializeDatabase() {
   try {
-    const transaction = db.transaction(['teams'], 'readwrite');
-    const store = transaction.objectStore('teams');
-    
-    // Verificar se já existem equipes
-    const countRequest = store.count();
-    countRequest.onsuccess = async () => {
-      if (countRequest.result === 0) {
-        // Criar equipes padrão
-        const defaultTeams = [
-          {
-            name: 'TI - Tecnologia da Informação',
-            description: 'Equipamentos de tecnologia e infraestrutura',
-            color: '#3B82F6',
-            created_at: new Date().toISOString()
-          },
-          {
-            name: 'Facilities - Infraestrutura',
-            description: 'Móveis, equipamentos de escritório e infraestrutura física',
-            color: '#10B981',
-            created_at: new Date().toISOString()
-          },
-          {
-            name: 'RH - Recursos Humanos',
-            description: 'Equipamentos e materiais do setor de RH',
-            color: '#8B5CF6',
-            created_at: new Date().toISOString()
-          },
-          {
-            name: 'Financeiro',
-            description: 'Equipamentos e ativos do setor financeiro',
-            color: '#F59E0B',
-            created_at: new Date().toISOString()
-          }
-        ];
-        
-        for (const team of defaultTeams) {
-          await store.add(team);
-        }
-        
-        // Criar andares padrão para cada equipe
-        await createDefaultFloors();
-      }
-    };
-  } catch (error) {
-    console.error('Erro ao criar equipes padrão:', error);
-  }
-};
+    const connection = await initConnection();
+    if (!connection) return false;
 
-// Criar andares padrão
-const createDefaultFloors = async () => {
-  try {
-    const transaction = db.transaction(['teams', 'floors'], 'readwrite');
-    const teamStore = transaction.objectStore('teams');
-    const floorStore = transaction.objectStore('floors');
-    
-    const teamsRequest = teamStore.getAll();
-    teamsRequest.onsuccess = () => {
-      const teams = teamsRequest.result;
-      
-      teams.forEach(team => {
-        // Criar andares básicos para cada equipe
-        const defaultFloors = [
-          {
-            name: '1º Andar',
-            description: `Térreo - ${team.name}`,
-            team_id: team.id,
-            created_at: new Date().toISOString()
-          },
-          {
-            name: '2º Andar',
-            description: `Segundo andar - ${team.name}`,
-            team_id: team.id,
-            created_at: new Date().toISOString()
-          }
-        ];
-        
-        defaultFloors.forEach(floor => {
-          floorStore.add(floor);
-        });
-      });
-    };
-  } catch (error) {
-    console.error('Erro ao criar andares padrão:', error);
-  }
-};
+    // Criar tabela de usuários
+    await connection`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        company VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
 
-export const getDB = () => db;
+    // Criar tabela de andares
+    await connection`
+      CREATE TABLE IF NOT EXISTS floors (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+
+    // Criar tabela de salas
+    await connection`
+      CREATE TABLE IF NOT EXISTS rooms (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        floor_id INTEGER REFERENCES floors(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+
+    // Criar tabela de ativos
+    await connection`
+      CREATE TABLE IF NOT EXISTS assets (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        code VARCHAR(100) NOT NULL,
+        category VARCHAR(100),
+        description TEXT,
+        value DECIMAL(12,2),
+        status VARCHAR(50) DEFAULT 'Ativo',
+        floor_id INTEGER REFERENCES floors(id),
+        room_id INTEGER REFERENCES rooms(id),
+        photo TEXT,
+        supplier VARCHAR(255),
+        serial_number VARCHAR(255),
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(code, user_id)
+      )
+    `;
+
+    // Criar índices para melhor performance
+    await connection`CREATE INDEX IF NOT EXISTS idx_assets_user_id ON assets(user_id)`;
+    await connection`CREATE INDEX IF NOT EXISTS idx_assets_floor_id ON assets(floor_id)`;
+    await connection`CREATE INDEX IF NOT EXISTS idx_assets_room_id ON assets(room_id)`;
+    await connection`CREATE INDEX IF NOT EXISTS idx_rooms_floor_id ON rooms(floor_id)`;
+    await connection`CREATE INDEX IF NOT EXISTS idx_floors_user_id ON floors(user_id)`;
+    await connection`CREATE INDEX IF NOT EXISTS idx_rooms_user_id ON rooms(user_id)`;
+
+    console.log('✅ Banco de dados inicializado com sucesso');
+    return true;
+  } catch (error) {
+    console.error('❌ Erro ao inicializar banco de dados:', error);
+    return false;
+  }
+}
