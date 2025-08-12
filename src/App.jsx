@@ -1,7 +1,8 @@
-// SISTEMA DE CONTROLE DE ATIVOS COM AUTENTICAÇÃO SEGURA
+// SISTEMA DE CONTROLE DE ATIVOS COM AUTENTICAÇÃO SEGURA E IMPORTAÇÃO EXCEL
 // Substitua o conteúdo do arquivo src/App.jsx por este código:
 
 import React, { useState, useEffect, createContext, useContext, useRef } from 'react';
+import * as XLSX from 'xlsx';
 
 // =================== CONTEXT DE AUTENTICAÇÃO ===================
 const AuthContext = createContext({});
@@ -558,6 +559,55 @@ const databaseService = {
       }
     },
 
+    async createBatch(assetsData, teamId) {
+      try {
+        const sql = await databaseService.getConnection();
+        const results = [];
+        const errors = [];
+
+        for (let i = 0; i < assetsData.length; i++) {
+          const assetData = assetsData[i];
+          try {
+            const result = await sql`
+              INSERT INTO assets (
+                name, code, category, description, value, status, 
+                floor_id, room_id, photo, supplier, serial_number, team_id
+              )
+              VALUES (
+                ${assetData.name}, ${assetData.code}, ${assetData.category || null},
+                ${assetData.description || null}, ${assetData.value || null}, ${assetData.status || 'Ativo'},
+                ${assetData.floor_id}, ${assetData.room_id || null}, ${assetData.photo || null},
+                ${assetData.supplier || null}, ${assetData.serial_number || null}, ${teamId}
+              )
+              RETURNING *
+            `;
+            results.push(result[0]);
+          } catch (error) {
+            console.error(`Erro ao criar ativo ${i + 1}:`, error);
+            errors.push({
+              row: i + 1,
+              asset: assetData,
+              error: error.message
+            });
+          }
+        }
+
+        return { 
+          success: true, 
+          data: {
+            created: results,
+            errors: errors,
+            totalProcessed: assetsData.length,
+            successCount: results.length,
+            errorCount: errors.length
+          }
+        };
+      } catch (error) {
+        console.error('Erro no batch de ativos:', error);
+        return { success: false, error: error.message };
+      }
+    },
+
     async update(id, updates, teamId) {
       try {
         const sql = await databaseService.getConnection();
@@ -927,7 +977,6 @@ const AuthProvider = ({ children }) => {
   );
 };
 
-// [RESTO DO CÓDIGO PERMANECE IGUAL - APENAS COPIANDO A PARTIR DOS ÍCONES...]
 // =================== ÍCONES MODERNOS ===================
 const Icons = {
   User: () => (
@@ -949,6 +998,11 @@ const Icons = {
   Upload: () => (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+    </svg>
+  ),
+  Download: () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
     </svg>
   ),
   Image: () => (
@@ -1042,12 +1096,775 @@ const Icons = {
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
     </svg>
+  ),
+  FileText: () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
   )
 };
 
-// [RESTO DO CÓDIGO CONTINUA IGUAL...]
-// Vou incluir apenas o modal de autenticação atualizado:
+// =================== COMPONENTE DE IMPORTAÇÃO EXCEL ===================
+const ExcelImportModal = ({ 
+  isOpen, 
+  onClose, 
+  onImport, 
+  floors, 
+  categories, 
+  statuses,
+  Icons 
+}) => {
+  const [file, setFile] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [excelData, setExcelData] = useState(null);
+  const [columnMapping, setColumnMapping] = useState({});
+  const [showMapping, setShowMapping] = useState(false);
+  const [validationErrors, setValidationErrors] = useState([]);
+  const [previewData, setPreviewData] = useState([]);
+  const fileInputRef = useRef(null);
 
+  const assetFields = [
+    { key: 'name', label: 'Nome do Ativo', required: true },
+    { key: 'code', label: 'Código', required: true },
+    { key: 'category', label: 'Categoria', required: false },
+    { key: 'description', label: 'Descrição', required: false },
+    { key: 'value', label: 'Valor', required: false },
+    { key: 'status', label: 'Status', required: false },
+    { key: 'floor_name', label: 'Nome do Andar', required: true },
+    { key: 'room_name', label: 'Nome da Sala', required: false },
+    { key: 'supplier', label: 'Fornecedor', required: false },
+    { key: 'serial_number', label: 'Número de Série', required: false }
+  ];
+
+  const handleFileSelect = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      if (!selectedFile.name.match(/\.(xlsx|xls)$/)) {
+        alert('Por favor, selecione apenas arquivos Excel (.xlsx ou .xls)');
+        return;
+      }
+      setFile(selectedFile);
+      processExcelFile(selectedFile);
+    }
+  };
+
+  const processExcelFile = async (file) => {
+    setIsProcessing(true);
+    setValidationErrors([]);
+    
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      
+      // Converter para JSON
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      
+      if (jsonData.length < 2) {
+        throw new Error('O arquivo deve conter pelo menos uma linha de cabeçalho e uma linha de dados');
+      }
+
+      const headers = jsonData[0].filter(header => header && header.toString().trim());
+      const rows = jsonData.slice(1).filter(row => row.some(cell => cell !== undefined && cell !== ''));
+
+      setExcelData({ headers, rows });
+      
+      // Inicializar mapeamento automático
+      const autoMapping = {};
+      headers.forEach((header, index) => {
+        const headerLower = header.toString().toLowerCase().trim();
+        
+        // Mapeamento automático baseado em palavras-chave
+        if (headerLower.includes('nome') || headerLower.includes('name')) {
+          autoMapping[index] = 'name';
+        } else if (headerLower.includes('código') || headerLower.includes('codigo') || headerLower.includes('code')) {
+          autoMapping[index] = 'code';
+        } else if (headerLower.includes('categoria') || headerLower.includes('category')) {
+          autoMapping[index] = 'category';
+        } else if (headerLower.includes('descrição') || headerLower.includes('descricao') || headerLower.includes('description')) {
+          autoMapping[index] = 'description';
+        } else if (headerLower.includes('valor') || headerLower.includes('value') || headerLower.includes('preço') || headerLower.includes('preco')) {
+          autoMapping[index] = 'value';
+        } else if (headerLower.includes('status')) {
+          autoMapping[index] = 'status';
+        } else if (headerLower.includes('andar') || headerLower.includes('floor')) {
+          autoMapping[index] = 'floor_name';
+        } else if (headerLower.includes('sala') || headerLower.includes('room')) {
+          autoMapping[index] = 'room_name';
+        } else if (headerLower.includes('fornecedor') || headerLower.includes('supplier')) {
+          autoMapping[index] = 'supplier';
+        } else if (headerLower.includes('série') || headerLower.includes('serie') || headerLower.includes('serial')) {
+          autoMapping[index] = 'serial_number';
+        }
+      });
+
+      setColumnMapping(autoMapping);
+      setShowMapping(true);
+      
+      // Gerar preview dos dados
+      generatePreview(rows, autoMapping, headers);
+      
+    } catch (error) {
+      console.error('Erro ao processar arquivo Excel:', error);
+      alert('Erro ao processar arquivo: ' + error.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const generatePreview = (rows, mapping, headers) => {
+    const preview = rows.slice(0, 5).map((row, rowIndex) => {
+      const mappedRow = {};
+      Object.entries(mapping).forEach(([colIndex, fieldKey]) => {
+        mappedRow[fieldKey] = row[parseInt(colIndex)] || '';
+      });
+      return { ...mappedRow, _originalRow: rowIndex };
+    });
+    setPreviewData(preview);
+  };
+
+  const validateData = (rows, mapping) => {
+    const errors = [];
+    const codes = new Set();
+
+    rows.forEach((row, index) => {
+      const rowNum = index + 2; // +2 porque começamos na linha 2 do Excel
+      
+      // Verificar campos obrigatórios
+      const requiredFields = assetFields.filter(field => field.required);
+      requiredFields.forEach(field => {
+        const colIndex = Object.keys(mapping).find(key => mapping[key] === field.key);
+        if (!colIndex || !row[parseInt(colIndex)] || !row[parseInt(colIndex)].toString().trim()) {
+          errors.push(`Linha ${rowNum}: ${field.label} é obrigatório`);
+        }
+      });
+
+      // Verificar código único
+      const codeColIndex = Object.keys(mapping).find(key => mapping[key] === 'code');
+      if (codeColIndex) {
+        const code = row[parseInt(codeColIndex)]?.toString().trim();
+        if (code) {
+          if (codes.has(code)) {
+            errors.push(`Linha ${rowNum}: Código "${code}" duplicado no arquivo`);
+          } else {
+            codes.add(code);
+          }
+        }
+      }
+
+      // Verificar valor se preenchido
+      const valueColIndex = Object.keys(mapping).find(key => mapping[key] === 'value');
+      if (valueColIndex && row[parseInt(valueColIndex)]) {
+        const value = parseFloat(row[parseInt(valueColIndex)]);
+        if (isNaN(value) || value < 0) {
+          errors.push(`Linha ${rowNum}: Valor deve ser um número positivo`);
+        }
+      }
+
+      // Verificar status se preenchido
+      const statusColIndex = Object.keys(mapping).find(key => mapping[key] === 'status');
+      if (statusColIndex && row[parseInt(statusColIndex)]) {
+        const status = row[parseInt(statusColIndex)]?.toString().trim();
+        if (status && !statuses.includes(status)) {
+          errors.push(`Linha ${rowNum}: Status "${status}" inválido. Use: ${statuses.join(', ')}`);
+        }
+      }
+
+      // Verificar categoria se preenchida
+      const categoryColIndex = Object.keys(mapping).find(key => mapping[key] === 'category');
+      if (categoryColIndex && row[parseInt(categoryColIndex)]) {
+        const category = row[parseInt(categoryColIndex)]?.toString().trim();
+        if (category && !categories.includes(category)) {
+          errors.push(`Linha ${rowNum}: Categoria "${category}" não existe. Use: ${categories.join(', ')}`);
+        }
+      }
+    });
+
+    return errors;
+  };
+
+  const handleImport = async () => {
+    if (!excelData || !columnMapping) return;
+
+    setIsProcessing(true);
+    
+    try {
+      // Validar dados
+      const errors = validateData(excelData.rows, columnMapping);
+      if (errors.length > 0) {
+        setValidationErrors(errors);
+        setIsProcessing(false);
+        return;
+      }
+
+      // Converter dados para formato de ativos
+      const assetsToImport = [];
+      
+      for (const row of excelData.rows) {
+        const asset = {
+          name: '',
+          code: '',
+          category: '',
+          description: '',
+          value: null,
+          status: 'Ativo',
+          floor_id: null,
+          room_id: null,
+          supplier: '',
+          serial_number: ''
+        };
+
+        // Mapear dados da linha
+        Object.entries(columnMapping).forEach(([colIndex, fieldKey]) => {
+          const cellValue = row[parseInt(colIndex)];
+          
+          if (cellValue !== undefined && cellValue !== null && cellValue !== '') {
+            if (fieldKey === 'floor_name') {
+              // Encontrar ID do andar pelo nome
+              const floor = floors.find(f => 
+                f.name.toLowerCase().includes(cellValue.toString().toLowerCase().trim()) ||
+                cellValue.toString().toLowerCase().includes(f.name.toLowerCase())
+              );
+              if (floor) {
+                asset.floor_id = floor.id;
+              }
+            } else if (fieldKey === 'room_name') {
+              // Encontrar ID da sala pelo nome (será processado depois que tivermos o floor_id)
+              asset._room_name = cellValue.toString().trim();
+            } else if (fieldKey === 'value') {
+              const numValue = parseFloat(cellValue);
+              asset.value = isNaN(numValue) ? null : numValue;
+            } else {
+              asset[fieldKey] = cellValue.toString().trim();
+            }
+          }
+        });
+
+        // Buscar sala se especificada
+        if (asset._room_name && asset.floor_id) {
+          const floor = floors.find(f => f.id === asset.floor_id);
+          if (floor && floor.rooms) {
+            const room = floor.rooms.find(r => 
+              r.name.toLowerCase().includes(asset._room_name.toLowerCase()) ||
+              asset._room_name.toLowerCase().includes(r.name.toLowerCase())
+            );
+            if (room) {
+              asset.room_id = room.id;
+            }
+          }
+        }
+
+        // Remover campo temporário
+        delete asset._room_name;
+
+        assetsToImport.push(asset);
+      }
+
+      // Chamar função de importação
+      await onImport(assetsToImport);
+      
+      // Resetar estado
+      handleClose();
+      
+    } catch (error) {
+      console.error('Erro na importação:', error);
+      alert('Erro na importação: ' + error.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleClose = () => {
+    setFile(null);
+    setExcelData(null);
+    setColumnMapping({});
+    setShowMapping(false);
+    setValidationErrors([]);
+    setPreviewData([]);
+    setIsProcessing(false);
+    onClose();
+  };
+
+  const downloadTemplate = () => {
+    const templateData = [
+      ['Nome do Ativo', 'Código', 'Categoria', 'Descrição', 'Valor', 'Status', 'Andar', 'Sala', 'Fornecedor', 'Número de Série'],
+      ['Notebook Dell', 'NB-001', 'Informática', 'Notebook para desenvolvimento', '2500.00', 'Ativo', '11º Andar', 'Sala de Desenvolvimento', 'Dell Brasil', 'DL240001'],
+      ['Mesa de Escritório', 'MV-001', 'Móveis', 'Mesa executiva em L', '800.00', 'Ativo', '5º Andar', 'Departamento Financeiro', 'Móveis SA', ''],
+      ['Impressora HP', 'IM-001', 'Equipamentos', 'Impressora multifuncional', '1200.00', 'Ativo', '15º Andar', 'Secretaria Executiva', 'HP Brasil', 'HP240001']
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Ativos');
+    XLSX.writeFile(wb, 'template_ativos.xlsx');
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-gradient-to-br from-slate-900/80 via-purple-900/80 to-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white/95 backdrop-blur-xl rounded-3xl w-full max-w-6xl max-h-[95vh] overflow-y-auto shadow-2xl border border-white/20">
+        <div className="p-8">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-green-800 to-gray-900 bg-clip-text text-transparent">
+                📊 Importar Ativos do Excel
+              </h3>
+              <p className="text-gray-600 mt-2 font-medium">
+                Faça upload de um arquivo Excel para cadastrar múltiplos ativos
+              </p>
+            </div>
+            <button
+              onClick={handleClose}
+              className="p-3 hover:bg-gray-100 rounded-2xl transition-colors"
+            >
+              <Icons.X />
+            </button>
+          </div>
+
+          {/* Etapa 1: Upload do arquivo */}
+          {!showMapping && (
+            <div className="space-y-8">
+              <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-6 rounded-2xl border border-blue-200">
+                <h4 className="text-lg font-bold text-blue-900 mb-4 flex items-center">
+                  <Icons.Upload />
+                  <span className="ml-2">📁 Selecionar Arquivo Excel</span>
+                </h4>
+                
+                <div className="space-y-4">
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full h-32 border-4 border-dashed border-blue-300 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 bg-gradient-to-br from-blue-50/50 to-cyan-50/50"
+                  >
+                    <div className="text-center">
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center mx-auto mb-3">
+                        <Icons.Upload />
+                      </div>
+                      <p className="text-blue-700 font-bold">
+                        {file ? `📄 ${file.name}` : 'Clique para selecionar arquivo Excel'}
+                      </p>
+                      <p className="text-blue-600 text-sm">
+                        Suporta .xlsx e .xls
+                      </p>
+                    </div>
+                  </div>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+
+                  <button
+                    onClick={downloadTemplate}
+                    className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-4 rounded-2xl flex items-center justify-center space-x-3 transition-all font-bold shadow-lg hover:shadow-xl transform hover:scale-105"
+                  >
+                    <Icons.Download />
+                    <span>📥 Baixar Template Excel</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-6 rounded-2xl border border-amber-200">
+                <h4 className="text-lg font-bold text-amber-900 mb-4">💡 Instruções</h4>
+                <div className="space-y-3 text-amber-800">
+                  <div className="flex items-start space-x-3">
+                    <span className="font-bold text-amber-600">1.</span>
+                    <p>Baixe o template Excel acima ou use seu próprio arquivo</p>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <span className="font-bold text-amber-600">2.</span>
+                    <p>Preencha as informações dos ativos (Nome e Código são obrigatórios)</p>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <span className="font-bold text-amber-600">3.</span>
+                    <p>Use os nomes exatos dos andares já cadastrados no sistema</p>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <span className="font-bold text-amber-600">4.</span>
+                    <p>Faça upload do arquivo e configure o mapeamento das colunas</p>
+                  </div>
+                </div>
+              </div>
+
+              {isProcessing && (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-blue-600 font-bold">Processando arquivo Excel...</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Etapa 2: Mapeamento de colunas */}
+          {showMapping && excelData && (
+            <div className="space-y-8">
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-2xl border border-purple-200">
+                <h4 className="text-lg font-bold text-purple-900 mb-4 flex items-center">
+                  <Icons.Package />
+                  <span className="ml-2">🔗 Mapeamento de Colunas</span>
+                </h4>
+                <p className="text-purple-700 mb-6">
+                  Configure como as colunas do Excel correspondem aos campos do sistema
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {assetFields.map(field => (
+                    <div key={field.key} className="space-y-2">
+                      <label className="block text-sm font-bold text-purple-700">
+                        {field.label} {field.required && <span className="text-red-500">*</span>}
+                      </label>
+                      <select
+                        value={Object.keys(columnMapping).find(key => columnMapping[key] === field.key) || ''}
+                        onChange={(e) => {
+                          const newMapping = { ...columnMapping };
+                          
+                          // Remover mapeamento anterior desta coluna
+                          Object.keys(newMapping).forEach(key => {
+                            if (newMapping[key] === field.key) {
+                              delete newMapping[key];
+                            }
+                          });
+                          
+                          // Adicionar novo mapeamento se selecionado
+                          if (e.target.value !== '') {
+                            newMapping[e.target.value] = field.key;
+                          }
+                          
+                          setColumnMapping(newMapping);
+                          generatePreview(excelData.rows, newMapping, excelData.headers);
+                        }}
+                        className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-sm"
+                      >
+                        <option value="">Não mapear</option>
+                        {excelData.headers.map((header, index) => (
+                          <option key={index} value={index}>
+                            Coluna {index + 1}: {header}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Preview dos dados */}
+              {previewData.length > 0 && (
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-2xl border border-green-200">
+                  <h4 className="text-lg font-bold text-green-900 mb-4 flex items-center">
+                    <Icons.Eye />
+                    <span className="ml-2">👀 Preview dos Dados (primeiras 5 linhas)</span>
+                  </h4>
+                  
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-green-100 border border-green-200">
+                          <th className="p-2 text-left font-bold text-green-800">Nome</th>
+                          <th className="p-2 text-left font-bold text-green-800">Código</th>
+                          <th className="p-2 text-left font-bold text-green-800">Categoria</th>
+                          <th className="p-2 text-left font-bold text-green-800">Valor</th>
+                          <th className="p-2 text-left font-bold text-green-800">Status</th>
+                          <th className="p-2 text-left font-bold text-green-800">Andar</th>
+                          <th className="p-2 text-left font-bold text-green-800">Sala</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {previewData.map((row, index) => (
+                          <tr key={index} className="bg-white border border-green-100 hover:bg-green-50">
+                            <td className="p-2 font-medium">{row.name || '-'}</td>
+                            <td className="p-2 font-mono text-xs">{row.code || '-'}</td>
+                            <td className="p-2">{row.category || '-'}</td>
+                            <td className="p-2">{row.value ? `R$ ${parseFloat(row.value).toLocaleString('pt-BR')}` : '-'}</td>
+                            <td className="p-2">{row.status || 'Ativo'}</td>
+                            <td className="p-2">{row.floor_name || '-'}</td>
+                            <td className="p-2">{row.room_name || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Erros de validação */}
+              {validationErrors.length > 0 && (
+                <div className="bg-gradient-to-r from-red-50 to-pink-50 p-6 rounded-2xl border border-red-200">
+                  <h4 className="text-lg font-bold text-red-900 mb-4 flex items-center">
+                    <Icons.AlertCircle />
+                    <span className="ml-2">❌ Erros de Validação ({validationErrors.length})</span>
+                  </h4>
+                  <div className="max-h-40 overflow-y-auto space-y-2">
+                    {validationErrors.map((error, index) => (
+                      <div key={index} className="bg-white/80 p-3 rounded-lg border border-red-100">
+                        <p className="text-red-800 text-sm font-medium">{error}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Botões de ação */}
+              <div className="flex justify-between items-center pt-6 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    setShowMapping(false);
+                    setValidationErrors([]);
+                  }}
+                  className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all font-bold"
+                >
+                  ⬅️ Voltar
+                </button>
+
+                <div className="text-center">
+                  <p className="text-sm text-gray-600 mb-2">
+                    📊 {excelData.rows.length} linha(s) encontrada(s)
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Campos obrigatórios: Nome, Código, Andar
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleImport}
+                  disabled={isProcessing || validationErrors.length > 0 || Object.keys(columnMapping).length === 0}
+                  className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-400 disabled:to-gray-400 text-white rounded-2xl transition-all font-bold shadow-lg hover:shadow-xl transform hover:scale-105"
+                >
+                  {isProcessing ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <span>Importando...</span>
+                    </div>
+                  ) : (
+                    '📥 Importar Ativos'
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// =================== MODAL DE RESULTADO DA IMPORTAÇÃO ===================
+const ImportResultModal = ({ isOpen, onClose, result, Icons }) => {
+  if (!isOpen || !result) return null;
+
+  return (
+    <div className="fixed inset-0 bg-gradient-to-br from-slate-900/80 via-purple-900/80 to-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white/95 backdrop-blur-xl rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl border border-white/20">
+        <div className="p-8">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-gray-900 bg-clip-text text-transparent">
+                📈 Resultado da Importação
+              </h3>
+              <p className="text-gray-600 mt-2 font-medium">
+                Resumo do processamento do arquivo Excel
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-3 hover:bg-gray-100 rounded-2xl transition-colors"
+            >
+              <Icons.X />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-2xl border border-blue-200 text-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Icons.FileText />
+              </div>
+              <p className="text-sm font-bold text-blue-700 mb-2">Total Processado</p>
+              <p className="text-3xl font-bold text-blue-900">{result.totalProcessed}</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-2xl border border-green-200 text-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Icons.CheckCircle />
+              </div>
+              <p className="text-sm font-bold text-green-700 mb-2">Importados com Sucesso</p>
+              <p className="text-3xl font-bold text-green-900">{result.successCount}</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-red-50 to-pink-50 p-6 rounded-2xl border border-red-200 text-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Icons.AlertCircle />
+              </div>
+              <p className="text-sm font-bold text-red-700 mb-2">Erros</p>
+              <p className="text-3xl font-bold text-red-900">{result.errorCount}</p>
+            </div>
+          </div>
+
+          {result.errors && result.errors.length > 0 && (
+            <div className="bg-gradient-to-r from-red-50 to-pink-50 p-6 rounded-2xl border border-red-200">
+              <h4 className="text-lg font-bold text-red-900 mb-4 flex items-center">
+                <Icons.AlertCircle />
+                <span className="ml-2">❌ Erros Encontrados</span>
+              </h4>
+              <div className="max-h-60 overflow-y-auto space-y-3">
+                {result.errors.map((error, index) => (
+                  <div key={index} className="bg-white/80 p-4 rounded-lg border border-red-100">
+                    <p className="text-red-800 font-bold mb-2">Linha {error.row}:</p>
+                    <p className="text-red-700 text-sm mb-2">{error.error}</p>
+                    <p className="text-red-600 text-xs">
+                      Ativo: {error.asset.name} ({error.asset.code})
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {result.successCount > 0 && (
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-2xl border border-green-200">
+              <h4 className="text-lg font-bold text-green-900 mb-4 flex items-center">
+                <Icons.CheckCircle />
+                <span className="ml-2">✅ Ativos Importados com Sucesso</span>
+              </h4>
+              <p className="text-green-700 font-medium">
+                {result.successCount} ativo(s) foram cadastrados no sistema com sucesso!
+              </p>
+            </div>
+          )}
+
+          <div className="flex justify-center mt-8 pt-6 border-t border-gray-200">
+            <button
+              onClick={onClose}
+              className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-2xl transition-all font-bold shadow-lg hover:shadow-xl transform hover:scale-105"
+            >
+              ✅ Concluir
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// =================== UTILITÁRIOS PARA FOTOS ===================
+const PhotoUtils = {
+  // Converter file para base64
+  fileToBase64: (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
+    });
+  },
+
+  // Redimensionar imagem
+  resizeImage: (file, maxWidth = 800, maxHeight = 600, quality = 0.8) => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      
+      img.onload = () => {
+        // Calcular novas dimensões mantendo proporção
+        let { width, height } = img;
+        
+        if (width > height) {
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = (width * maxHeight) / height;
+            height = maxHeight;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Desenhar imagem redimensionada
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Converter para base64
+        const base64 = canvas.toDataURL('image/jpeg', quality);
+        resolve(base64);
+      };
+      
+      img.src = URL.createObjectURL(file);
+    });
+  },
+
+  // Capturar foto da câmera
+  captureFromCamera: () => {
+    return new Promise((resolve, reject) => {
+      // Verificar se o navegador suporta getUserMedia
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        reject(new Error('Câmera não suportada neste navegador'));
+        return;
+      }
+
+      navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: 'user' // Câmera frontal
+        } 
+      })
+        .then(stream => {
+          // Criar elementos de vídeo e canvas
+          const video = document.createElement('video');
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          video.srcObject = stream;
+          video.autoplay = true;
+          video.muted = true;
+          
+          video.onloadedmetadata = () => {
+            // Aguardar o vídeo carregar completamente
+            setTimeout(() => {
+              try {
+                // Definir dimensões do canvas
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                // Capturar frame atual do vídeo
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Parar todos os tracks da stream
+                stream.getTracks().forEach(track => {
+                  track.stop();
+                });
+                
+                // Converter para base64
+                const base64 = canvas.toDataURL('image/jpeg', 0.8);
+                resolve(base64);
+              } catch (error) {
+                // Parar stream em caso de erro
+                stream.getTracks().forEach(track => track.stop());
+                reject(new Error('Erro ao capturar foto: ' + error.message));
+              }
+            }, 500); // Aguardar 500ms para garantir que o vídeo esteja pronto
+          };
+          
+          video.onerror = (error) => {
+            stream.getTracks().forEach(track => track.stop());
+            reject(new Error('Erro no vídeo: ' + error.message));
+          };
+        })
+        .catch(error => {
+          console.error('Erro ao acessar câmera:', error);
+          reject(new Error('Não foi possível acessar a câmera. Verifique as permissões.'));
+        });
+    });
+  }
+};
+
+// =================== MODAL DE AUTENTICAÇÃO ===================
 const AuthModal = ({ isOpen, onClose }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -1083,105 +1900,6 @@ const AuthModal = ({ isOpen, onClose }) => {
 
     loadTeams();
   }, [dbReady, isLogin]);
-
-  const PhotoUtils = {
-    fileToBase64: (file) => {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = error => reject(error);
-      });
-    },
-
-    resizeImage: (file, maxWidth = 800, maxHeight = 600, quality = 0.8) => {
-      return new Promise((resolve) => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const img = new Image();
-        
-        img.onload = () => {
-          let { width, height } = img;
-          
-          if (width > height) {
-            if (width > maxWidth) {
-              height = (height * maxWidth) / width;
-              width = maxWidth;
-            }
-          } else {
-            if (height > maxHeight) {
-              width = (width * maxHeight) / height;
-              height = maxHeight;
-            }
-          }
-          
-          canvas.width = width;
-          canvas.height = height;
-          ctx.drawImage(img, 0, 0, width, height);
-          
-          const base64 = canvas.toDataURL('image/jpeg', quality);
-          resolve(base64);
-        };
-        
-        img.src = URL.createObjectURL(file);
-      });
-    },
-
-    captureFromCamera: () => {
-      return new Promise((resolve, reject) => {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          reject(new Error('Câmera não suportada neste navegador'));
-          return;
-        }
-
-        navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            width: { ideal: 640 },
-            height: { ideal: 480 },
-            facingMode: 'user'
-          } 
-        })
-          .then(stream => {
-            const video = document.createElement('video');
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            video.srcObject = stream;
-            video.autoplay = true;
-            video.muted = true;
-            
-            video.onloadedmetadata = () => {
-              setTimeout(() => {
-                try {
-                  canvas.width = video.videoWidth;
-                  canvas.height = video.videoHeight;
-                  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                  
-                  stream.getTracks().forEach(track => {
-                    track.stop();
-                  });
-                  
-                  const base64 = canvas.toDataURL('image/jpeg', 0.8);
-                  resolve(base64);
-                } catch (error) {
-                  stream.getTracks().forEach(track => track.stop());
-                  reject(new Error('Erro ao capturar foto: ' + error.message));
-                }
-              }, 500);
-            };
-            
-            video.onerror = (error) => {
-              stream.getTracks().forEach(track => track.stop());
-              reject(new Error('Erro no vídeo: ' + error.message));
-            };
-          })
-          .catch(error => {
-            console.error('Erro ao acessar câmera:', error);
-            reject(new Error('Não foi possível acessar a câmera. Verifique as permissões.'));
-          });
-      });
-    }
-  };
 
   const handlePhotoCapture = async () => {
     try {
@@ -1329,2641 +2047,3 @@ const AuthModal = ({ isOpen, onClose }) => {
                     >
                       <Icons.Camera />
                     </div>
-                  )}
-                  
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nome Completo *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    minLength="2"
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Seu nome completo"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Empresa (opcional)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.company}
-                    onChange={(e) => setFormData({...formData, company: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Nome da empresa"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    🏢 Time/Equipe *
-                  </label>
-                  <select
-                    required
-                    value={formData.team_id}
-                    onChange={(e) => setFormData({...formData, team_id: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value="">Selecione seu time</option>
-                    {teams.map(team => (
-                      <option key={team.id} value={team.id}>
-                        {team.name} - {team.description}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    💡 Você só verá ativos do seu time
-                  </p>
-                </div>
-              </>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                E-mail *
-              </label>
-              <input
-                type="email"
-                required
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="seu@email.com"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Senha *
-              </label>
-              <input
-                type="password"
-                required
-                minLength="6"
-                value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Mínimo 6 caracteres"
-              />
-              <p className="text-xs text-gray-500 mt-1 flex items-center">
-                <Icons.Key />
-                <span className="ml-1">
-                  {isLogin ? 'Digite sua senha' : 'Será criptografada com SHA-256'}
-                </span>
-              </p>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || !dbReady}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-400 text-white py-3 px-6 rounded-lg font-medium transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
-            >
-              {loading ? (
-                <div className="flex items-center justify-center">
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-                  {isLogin ? 'Entrando...' : 'Criando conta...'}
-                </div>
-              ) : (
-                isLogin ? 'Entrar' : 'Criar Conta'
-              )}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setMessage('');
-                setUserPhoto(null);
-                setFormData({ email: '', password: '', name: '', company: '', team_id: '' });
-              }}
-              className="text-blue-600 hover:text-blue-700 font-medium"
-            >
-              {isLogin ? 'Não tem conta? Criar agora' : 'Já tem conta? Entrar'}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Modal de opções de foto */}
-      {showPhotoOptions && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
-          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl border border-white/20 overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="text-xl font-bold">📷 Adicionar Foto</h3>
-                  <p className="text-blue-100 text-sm mt-1">Escolha uma opção</p>
-                </div>
-                <button
-                  onClick={() => setShowPhotoOptions(false)}
-                  className="p-2 hover:bg-white/20 rounded-xl transition-colors"
-                >
-                  <Icons.X />
-                </button>
-              </div>
-            </div>
-            
-            <div className="p-6 space-y-4">
-              <button
-                onClick={handlePhotoCapture}
-                className="w-full bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white p-4 rounded-2xl flex items-center space-x-3 transition-all transform hover:scale-105 shadow-lg"
-              >
-                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                  <Icons.Camera />
-                </div>
-                <div className="text-left">
-                  <p className="font-bold">Tirar Foto</p>
-                  <p className="text-sm text-emerald-100">Usar câmera do dispositivo</p>
-                </div>
-              </button>
-              
-              <button
-                onClick={handlePhotoGallery}
-                className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white p-4 rounded-2xl flex items-center space-x-3 transition-all transform hover:scale-105 shadow-lg"
-              >
-                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                  <Icons.Image />
-                </div>
-                <div className="text-left">
-                  <p className="font-bold">Escolher da Galeria</p>
-                  <p className="text-sm text-blue-100">Selecionar foto existente</p>
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-};
-
-// =================== UTILITÁRIOS PARA FOTOS ===================
-const PhotoUtils = {
-  // Converter file para base64
-  fileToBase64: (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = error => reject(error);
-    });
-  },
-
-  // Redimensionar imagem
-  resizeImage: (file, maxWidth = 800, maxHeight = 600, quality = 0.8) => {
-    return new Promise((resolve) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const img = new Image();
-      
-      img.onload = () => {
-        // Calcular novas dimensões mantendo proporção
-        let { width, height } = img;
-        
-        if (width > height) {
-          if (width > maxWidth) {
-            height = (height * maxWidth) / width;
-            width = maxWidth;
-          }
-        } else {
-          if (height > maxHeight) {
-            width = (width * maxHeight) / height;
-            height = maxHeight;
-          }
-        }
-        
-        canvas.width = width;
-        canvas.height = height;
-        
-        // Desenhar imagem redimensionada
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        // Converter para base64
-        const base64 = canvas.toDataURL('image/jpeg', quality);
-        resolve(base64);
-      };
-      
-      img.src = URL.createObjectURL(file);
-    });
-  },
-
-  // Capturar foto da câmera
-  captureFromCamera: () => {
-    return new Promise((resolve, reject) => {
-      // Verificar se o navegador suporta getUserMedia
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        reject(new Error('Câmera não suportada neste navegador'));
-        return;
-      }
-
-      navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          facingMode: 'user' // Câmera frontal
-        } 
-      })
-        .then(stream => {
-          // Criar elementos de vídeo e canvas
-          const video = document.createElement('video');
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          
-          video.srcObject = stream;
-          video.autoplay = true;
-          video.muted = true;
-          
-          video.onloadedmetadata = () => {
-            // Aguardar o vídeo carregar completamente
-            setTimeout(() => {
-              try {
-                // Definir dimensões do canvas
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                
-                // Capturar frame atual do vídeo
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                
-                // Parar todos os tracks da stream
-                stream.getTracks().forEach(track => {
-                  track.stop();
-                });
-                
-                // Converter para base64
-                const base64 = canvas.toDataURL('image/jpeg', 0.8);
-                resolve(base64);
-              } catch (error) {
-                // Parar stream em caso de erro
-                stream.getTracks().forEach(track => track.stop());
-                reject(new Error('Erro ao capturar foto: ' + error.message));
-              }
-            }, 500); // Aguardar 500ms para garantir que o vídeo esteja pronto
-          };
-          
-          video.onerror = (error) => {
-            stream.getTracks().forEach(track => track.stop());
-            reject(new Error('Erro no vídeo: ' + error.message));
-          };
-        })
-        .catch(error => {
-          console.error('Erro ao acessar câmera:', error);
-          reject(new Error('Não foi possível acessar a câmera. Verifique as permissões.'));
-        });
-    });
-  }
-};
-
-// =================== MODAL DE OPÇÕES DE FOTO ===================
-const PhotoOptionsModal = ({ isOpen, onClose, onCameraSelect, onGallerySelect }) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
-      <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl border border-white/20 overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-xl font-bold">📷 Adicionar Foto</h3>
-              <p className="text-blue-100 text-sm mt-1">Escolha uma opção</p>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-white/20 rounded-xl transition-colors"
-            >
-              <Icons.X />
-            </button>
-          </div>
-        </div>
-        
-        <div className="p-6 space-y-4">
-          <button
-            onClick={onCameraSelect}
-            className="w-full bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white p-4 rounded-2xl flex items-center space-x-3 transition-all transform hover:scale-105 shadow-lg"
-          >
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-              <Icons.Camera />
-            </div>
-            <div className="text-left">
-              <p className="font-bold">Tirar Foto</p>
-              <p className="text-sm text-emerald-100">Usar câmera do dispositivo</p>
-            </div>
-          </button>
-          
-          <button
-            onClick={onGallerySelect}
-            className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white p-4 rounded-2xl flex items-center space-x-3 transition-all transform hover:scale-105 shadow-lg"
-          >
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-              <Icons.Image />
-            </div>
-            <div className="text-left">
-              <p className="font-bold">Escolher da Galeria</p>
-              <p className="text-sm text-blue-100">Selecionar foto existente</p>
-            </div>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// =================== COMPONENTE DE BADGE DE STATUS ===================
-const StatusBadge = ({ status }) => {
-  const statusConfig = {
-    'Ativo': { bg: 'from-green-100 to-emerald-100', text: 'text-green-800', border: 'border-green-200', icon: '✅' },
-    'Inativo': { bg: 'from-gray-100 to-slate-100', text: 'text-gray-800', border: 'border-gray-200', icon: '⏸️' },
-    'Manutenção': { bg: 'from-yellow-100 to-orange-100', text: 'text-yellow-800', border: 'border-yellow-200', icon: '🔧' },
-    'Descartado': { bg: 'from-red-100 to-pink-100', text: 'text-red-800', border: 'border-red-200', icon: '🗑️' }
-  };
-
-  const config = statusConfig[status] || statusConfig['Ativo'];
-
-  return (
-    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-gradient-to-r ${config.bg} ${config.text} border ${config.border}`}>
-      <span className="mr-1">{config.icon}</span>
-      {status}
-    </span>
-  );
-};
-
-// =================== PÁGINA DE PERFIL ===================
-const ProfilePage = () => {
-  const { user, updateProfile, changePassword, loading: authLoading } = useAuth();
-  const [editMode, setEditMode] = useState(false);
-  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
-  const [showChangePassword, setShowChangePassword] = useState(false);
-  const [localLoading, setLocalLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: user?.name || '',
-    company: user?.company || '',
-    photo: user?.photo || null,
-    team_id: user?.team_id || null
-  });
-  const [teams, setTeams] = useState([]);
-  const [passwordData, setPasswordData] = useState({
-    newPassword: '',
-    confirmPassword: ''
-  });
-  const [message, setMessage] = useState('');
-  const fileInputRef = useRef(null);
-
-  // Sincronizar formData com dados do usuário e carregar times
-  useEffect(() => {
-    if (user) {
-      setFormData({
-        name: user.name || '',
-        company: user.company || '',
-        photo: user.photo || null,
-        team_id: user.team_id || null
-      });
-    }
-  }, [user]);
-
-  // Carregar times disponíveis
-  useEffect(() => {
-    const loadTeams = async () => {
-      try {
-        const result = await databaseService.teams.getAll();
-        if (result.success) {
-          setTeams(result.data);
-        }
-      } catch (error) {
-        console.error('Erro ao carregar times:', error);
-      }
-    };
-
-    loadTeams();
-  }, []);
-
-  const handlePhotoCapture = async () => {
-    try {
-      const photo = await PhotoUtils.captureFromCamera();
-      console.log('Foto capturada, tamanho:', photo.length);
-      setFormData(prev => ({ ...prev, photo }));
-      setShowPhotoOptions(false);
-      setMessage('✅ Foto capturada com sucesso!');
-      setTimeout(() => setMessage(''), 3000);
-    } catch (error) {
-      console.error('Erro ao capturar foto:', error);
-      setMessage('❌ Erro ao acessar câmera: ' + error.message);
-      setTimeout(() => setMessage(''), 5000);
-    }
-  };
-
-  const handlePhotoGallery = () => {
-    fileInputRef.current?.click();
-    setShowPhotoOptions(false);
-  };
-
-  const handleFileSelect = async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      try {
-        console.log('Arquivo selecionado:', file.name, 'Tamanho:', file.size);
-        const resizedPhoto = await PhotoUtils.resizeImage(file, 400, 400, 0.8);
-        console.log('Foto redimensionada, tamanho:', resizedPhoto.length);
-        setFormData(prev => ({ ...prev, photo: resizedPhoto }));
-        setMessage('✅ Foto selecionada com sucesso!');
-        setTimeout(() => setMessage(''), 3000);
-      } catch (error) {
-        console.error('Erro ao processar foto:', error);
-        setMessage('❌ Erro ao processar foto: ' + error.message);
-        setTimeout(() => setMessage(''), 5000);
-      }
-    }
-  };
-
-  const handleSave = async () => {
-    try {
-      setLocalLoading(true);
-      
-      console.log('Dados a serem salvos:', formData);
-      
-      const result = await updateProfile(formData);
-      if (result.success) {
-        setMessage('✅ Perfil atualizado com sucesso!');
-        setEditMode(false);
-        setTimeout(() => setMessage(''), 3000);
-      } else {
-        setMessage('❌ ' + result.error);
-        setTimeout(() => setMessage(''), 5000);
-      }
-    } catch (error) {
-      console.error('Erro ao salvar:', error);
-      setMessage('❌ Erro ao atualizar perfil: ' + error.message);
-      setTimeout(() => setMessage(''), 5000);
-    } finally {
-      setLocalLoading(false);
-    }
-  };
-
-  const handleChangePassword = async () => {
-    try {
-      setLocalLoading(true);
-      
-      if (passwordData.newPassword !== passwordData.confirmPassword) {
-        setMessage('❌ As senhas não coincidem');
-        setTimeout(() => setMessage(''), 5000);
-        return;
-      }
-      
-      if (passwordData.newPassword.length < 6) {
-        setMessage('❌ A senha deve ter pelo menos 6 caracteres');
-        setTimeout(() => setMessage(''), 5000);
-        return;
-      }
-      
-      const result = await changePassword(passwordData.newPassword);
-      if (result.success) {
-        setMessage('✅ Senha alterada com sucesso!');
-        setShowChangePassword(false);
-        setPasswordData({ newPassword: '', confirmPassword: '' });
-        setTimeout(() => setMessage(''), 3000);
-      } else {
-        setMessage('❌ ' + result.error);
-        setTimeout(() => setMessage(''), 5000);
-      }
-    } catch (error) {
-      console.error('Erro ao alterar senha:', error);
-      setMessage('❌ Erro ao alterar senha: ' + error.message);
-      setTimeout(() => setMessage(''), 5000);
-    } finally {
-      setLocalLoading(false);
-    }
-  };
-
-  return (
-    <>
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
-          {/* Header do Perfil */}
-          <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 px-8 py-12 text-white relative overflow-hidden">
-            <div className="absolute inset-0 bg-black/10"></div>
-            <div className="relative z-10">
-              <div className="flex flex-col md:flex-row items-center space-y-6 md:space-y-0 md:space-x-8">
-                <div className="relative">
-                  <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-2xl bg-white/20">
-                    {(editMode ? formData.photo : user?.photo) ? (
-                      <img 
-                        src={editMode ? formData.photo : user.photo} 
-                        alt="Foto do perfil" 
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-white/30 to-white/10">
-                        <Icons.User />
-                      </div>
-                    )}
-                  </div>
-                  
-                  {editMode && (
-                    <button
-                      onClick={() => setShowPhotoOptions(true)}
-                      className="absolute -bottom-2 -right-2 w-10 h-10 bg-white text-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-gray-50 transition-colors"
-                    >
-                      <Icons.Camera />
-                    </button>
-                  )}
-                </div>
-                
-                <div className="text-center md:text-left flex-1">
-                  <h1 className="text-3xl font-bold mb-2">{user?.name}</h1>
-                  <p className="text-blue-100 text-lg mb-1">{user?.email}</p>
-                  {user?.company && (
-                    <p className="text-blue-200 font-medium">{user.company}</p>
-                  )}
-                  <div className="mt-4 flex flex-wrap gap-2 justify-center md:justify-start">
-                    <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium">
-                      👤 Usuário Ativo
-                    </span>
-                    <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium">
-                      📅 Desde {new Date(user?.created_at).toLocaleDateString('pt-BR')}
-                    </span>
-                    {user?.team_name && (
-                      <span className="px-3 py-1 bg-blue-400/20 rounded-full text-sm font-medium">
-                        🏢 {user.team_name}
-                      </span>
-                    )}
-                    <span className="px-3 py-1 bg-green-400/20 rounded-full text-sm font-medium">
-                      🔒 Login Seguro
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="flex flex-col space-y-3">
-                  {!editMode ? (
-                    <>
-                      <button
-                        onClick={() => setEditMode(true)}
-                        className="bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-xl flex items-center space-x-2 transition-colors font-medium"
-                      >
-                        <Icons.Edit />
-                        <span>Editar Perfil</span>
-                      </button>
-                      <button
-                        onClick={() => setShowChangePassword(true)}
-                        className="bg-green-500/20 hover:bg-green-500/30 text-white px-6 py-3 rounded-xl flex items-center space-x-2 transition-colors font-medium"
-                      >
-                        <Icons.Key />
-                        <span>Alterar Senha</span>
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => {
-                          setEditMode(false);
-                          setFormData({
-                            name: user?.name || '',
-                            company: user?.company || '',
-                            photo: user?.photo || null,
-                            team_id: user?.team_id || null
-                          });
-                        }}
-                        className="bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-xl transition-colors font-medium"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        onClick={handleSave}
-                        disabled={localLoading || authLoading}
-                        className="bg-white text-blue-600 hover:bg-gray-50 px-6 py-3 rounded-xl flex items-center space-x-2 transition-colors font-medium disabled:opacity-50"
-                      >
-                        {localLoading || authLoading ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin"></div>
-                            <span>Salvando...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Icons.Check />
-                            <span>Salvar</span>
-                          </>
-                        )}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Conteúdo do Perfil */}
-          <div className="p-8">
-            {message && (
-              <div className={`p-4 rounded-xl mb-6 text-sm font-medium ${
-                message.includes('✅') 
-                  ? 'bg-green-50 text-green-800 border border-green-200' 
-                  : 'bg-red-50 text-red-800 border border-red-200'
-              }`}>
-                {message}
-              </div>
-            )}
-
-            {editMode ? (
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-3">Nome Completo</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-medium"
-                    placeholder="Seu nome completo"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-3">Empresa</label>
-                  <input
-                    type="text"
-                    value={formData.company}
-                    onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-medium"
-                    placeholder="Nome da empresa (opcional)"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-3">🏢 Time/Equipe</label>
-                  <select
-                    value={formData.team_id || ''}
-                    onChange={(e) => setFormData({ ...formData, team_id: e.target.value || null })}
-                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-medium"
-                  >
-                    <option value="">Selecione um time</option>
-                    {teams.map(team => (
-                      <option key={team.id} value={team.id}>
-                        {team.name} - {team.description}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    💡 Alterar o time afetará quais ativos você pode ver
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-2xl border border-blue-100">
-                  <h3 className="text-lg font-bold text-blue-900 mb-4 flex items-center">
-                    <Icons.User />
-                    <span className="ml-2">Informações Pessoais</span>
-                  </h3>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-sm font-medium text-blue-700">Nome:</label>
-                      <p className="text-blue-900 font-bold">{user?.name}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-blue-700">E-mail:</label>
-                      <p className="text-blue-900 font-mono">{user?.email}</p>
-                    </div>
-                    {user?.company && (
-                      <div>
-                        <label className="text-sm font-medium text-blue-700">Empresa:</label>
-                        <p className="text-blue-900 font-bold">{user.company}</p>
-                      </div>
-                    )}
-                    <div>
-                      <label className="text-sm font-medium text-blue-700">Time:</label>
-                      <p className="text-blue-900 font-bold">
-                        {user?.team_name ? `${user.team_name} - ${user.team_description}` : 'Nenhum time definido'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-2xl border border-green-100">
-                  <h3 className="text-lg font-bold text-green-900 mb-4 flex items-center">
-                    <Icons.Settings />
-                    <span className="ml-2">Informações da Conta</span>
-                  </h3>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-sm font-medium text-green-700">Criada em:</label>
-                      <p className="text-green-900 font-bold">
-                        {new Date(user?.created_at).toLocaleDateString('pt-BR')}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-green-700">Última atualização:</label>
-                      <p className="text-green-900 font-bold">
-                        {new Date(user?.updated_at).toLocaleDateString('pt-BR')}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-green-700">Status:</label>
-                      <span className="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-bold">
-                        ✅ Ativo
-                      </span>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-green-700">Segurança:</label>
-                      <span className="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-bold">
-                        🔒 SHA-256
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Modal de Alteração de Senha */}
-      {showChangePassword && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-white/20">
-            <div className="p-8">
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-900 flex items-center">
-                    <Icons.Key />
-                    <span className="ml-2">🔒 Alterar Senha</span>
-                  </h3>
-                  <p className="text-gray-600 mt-2">Digite sua nova senha</p>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowChangePassword(false);
-                    setPasswordData({ newPassword: '', confirmPassword: '' });
-                  }}
-                  className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
-                >
-                  <Icons.X />
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Nova Senha</label>
-                  <input
-                    type="password"
-                    value={passwordData.newPassword}
-                    onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Mínimo 6 caracteres"
-                    minLength="6"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Confirmar Nova Senha</label>
-                  <input
-                    type="password"
-                    value={passwordData.confirmPassword}
-                    onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Digite novamente"
-                  />
-                </div>
-
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm text-blue-700 font-medium">
-                    🔐 A nova senha será criptografada com SHA-256
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex space-x-3 mt-6">
-                <button
-                  onClick={() => {
-                    setShowChangePassword(false);
-                    setPasswordData({ newPassword: '', confirmPassword: '' });
-                  }}
-                  className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all font-bold"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleChangePassword}
-                  disabled={localLoading || !passwordData.newPassword || !passwordData.confirmPassword}
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-400 disabled:to-gray-400 text-white rounded-lg transition-all font-bold shadow-lg hover:shadow-xl transform hover:scale-105"
-                >
-                  {localLoading ? (
-                    <div className="flex items-center justify-center">
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-                      <span>Alterando...</span>
-                    </div>
-                  ) : (
-                    '🔒 Alterar Senha'
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleFileSelect}
-        className="hidden"
-      />
-
-      <PhotoOptionsModal
-        isOpen={showPhotoOptions}
-        onClose={() => setShowPhotoOptions(false)}
-        onCameraSelect={handlePhotoCapture}
-        onGallerySelect={handlePhotoGallery}
-      />
-    </>
-  );
-};
-
-// =================== SISTEMA DE CONTROLE DE ATIVOS PRINCIPAL ===================
-const AssetControlSystem = () => {
-  const { user, profile, signOut } = useAuth();
-  // Inicializar com dashboard por padrão (sem perfil)
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [floors, setFloors] = useState([]);
-  const [assets, setAssets] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showAssetForm, setShowAssetForm] = useState(false);
-  const [showRoomForm, setShowRoomForm] = useState(false);
-  const [showFloorForm, setShowFloorForm] = useState(false);
-  const [editingAsset, setEditingAsset] = useState(null);
-  const [editingFloor, setEditingFloor] = useState(null);
-  const [editingRoom, setEditingRoom] = useState(null);
-  const [showAssetDetail, setShowAssetDetail] = useState(null);
-  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterCategory, setFilterCategory] = useState('');
-  const fileInputRef = useRef(null);
-
-  const [assetForm, setAssetForm] = useState({
-    name: '',
-    code: '',
-    category: '',
-    description: '',
-    value: '',
-    status: 'Ativo',
-    floor_id: '',
-    room_id: '',
-    photo: null,
-    supplier: '',
-    serial_number: ''
-  });
-
-  const [roomForm, setRoomForm] = useState({
-    name: '',
-    description: '',
-    floor_id: ''
-  });
-
-  const [floorForm, setFloorForm] = useState({
-    name: '',
-    description: ''
-  });
-
-  const categories = [
-    'Informática', 'Móveis', 'Equipamentos', 'Veículos', 'Ferramentas',
-    'Eletrônicos', 'Eletrodomésticos', 'Máquinas', 'Instrumentos'
-  ];
-
-  const statuses = ['Ativo', 'Inativo', 'Manutenção', 'Descartado'];
-
-  useEffect(() => {
-    if (user) {
-      loadData();
-    }
-  }, [user]);
-
-  const loadData = async () => {
-    setIsLoading(true);
-    try {
-      if (!user.team_id) {
-        console.warn('Usuário sem time definido');
-        setFloors([]);
-        setAssets([]);
-        return;
-      }
-
-      const [floorsResult, assetsResult] = await Promise.all([
-        databaseService.floors.getAll(user.team_id),
-        databaseService.assets.getAll(user.team_id)
-      ]);
-
-      if (floorsResult.success) {
-        setFloors(floorsResult.data || []);
-      }
-
-      if (assetsResult.success) {
-        setAssets(assetsResult.data || []);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const resetAssetForm = () => {
-    setAssetForm({
-      name: '',
-      code: '',
-      category: '',
-      description: '',
-      value: '',
-      status: 'Ativo',
-      floor_id: '',
-      room_id: '',
-      photo: null,
-      supplier: '',
-      serial_number: ''
-    });
-  };
-
-  const handleEditAsset = (asset) => {
-    setEditingAsset(asset);
-    setAssetForm({
-      name: asset.name,
-      code: asset.code,
-      category: asset.category || '',
-      description: asset.description || '',
-      value: asset.value || '',
-      status: asset.status,
-      floor_id: asset.floor_id,
-      room_id: asset.room_id || '',
-      photo: asset.photo || null,
-      supplier: asset.supplier || '',
-      serial_number: asset.serial_number || ''
-    });
-    setShowAssetForm(true);
-  };
-
-  const handleSaveAsset = async () => {
-    if (!assetForm.name || !assetForm.code || !assetForm.floor_id) {
-      alert('Nome, código e andar são obrigatórios');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      let result;
-
-      if (editingAsset) {
-        result = await databaseService.assets.update(editingAsset.id, assetForm, user.team_id);
-      } else {
-        result = await databaseService.assets.create(assetForm, user.team_id);
-      }
-      
-      if (result.success) {
-        await loadData();
-        resetAssetForm();
-        setShowAssetForm(false);
-        setEditingAsset(null);
-      } else {
-        alert('Erro ao salvar ativo: ' + result.error);
-      }
-    } catch (error) {
-      alert('Erro ao salvar ativo: ' + error.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDeleteAsset = async (asset) => {
-    if (confirm(`Tem certeza que deseja excluir o ativo "${asset.name}"?`)) {
-      try {
-        setIsLoading(true);
-        const result = await databaseService.assets.delete(asset.id, user.team_id);
-        
-        if (result.success) {
-          await loadData();
-        } else {
-          alert('Erro ao excluir ativo: ' + result.error);
-        }
-      } catch (error) {
-        alert('Erro ao excluir ativo: ' + error.message);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-  };
-
-  const handleEditRoom = (room) => {
-    setEditingRoom(room);
-    setRoomForm({
-      name: room.name,
-      description: room.description || '',
-      floor_id: room.floor_id
-    });
-    setShowRoomForm(true);
-  };
-
-  const handleDeleteRoom = async (room) => {
-    if (confirm(`Tem certeza que deseja excluir a sala "${room.name}"?`)) {
-      try {
-        setIsLoading(true);
-        const result = await databaseService.rooms.delete(room.id, user.team_id);
-        
-        if (result.success) {
-          await loadData();
-        } else {
-          alert('Erro ao excluir sala: ' + result.error);
-        }
-      } catch (error) {
-        alert('Erro ao excluir sala: ' + error.message);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-  };
-
-  const handleSaveRoom = async () => {
-    if (!roomForm.name || !roomForm.floor_id) {
-      alert('Nome e andar são obrigatórios');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      let result;
-
-      if (editingRoom) {
-        result = await databaseService.rooms.update(editingRoom.id, roomForm, user.team_id);
-      } else {
-        result = await databaseService.rooms.create(roomForm, user.team_id);
-      }
-      
-      if (result.success) {
-        await loadData();
-        setRoomForm({ name: '', description: '', floor_id: '' });
-        setShowRoomForm(false);
-        setEditingRoom(null);
-      } else {
-        alert('Erro ao salvar sala: ' + result.error);
-      }
-    } catch (error) {
-      alert('Erro ao salvar sala: ' + error.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSaveFloor = async () => {
-    if (!floorForm.name) {
-      alert('Nome do andar é obrigatório');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      const result = await databaseService.floors.create(floorForm, user.team_id);
-      
-      if (result.success) {
-        await loadData();
-        setFloorForm({ name: '', description: '' });
-        setShowFloorForm(false);
-      } else {
-        alert('Erro ao criar andar: ' + result.error);
-      }
-    } catch (error) {
-      alert('Erro ao criar andar: ' + error.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handlePhotoCapture = async () => {
-    try {
-      const photo = await PhotoUtils.captureFromCamera();
-      setAssetForm({ ...assetForm, photo });
-      setShowPhotoOptions(false);
-    } catch (error) {
-      console.error('Erro ao capturar foto:', error);
-      alert('Erro ao acessar câmera');
-    }
-  };
-
-  const handlePhotoGallery = () => {
-    fileInputRef.current?.click();
-    setShowPhotoOptions(false);
-  };
-
-  const handleFileSelect = async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      try {
-        const resizedPhoto = await PhotoUtils.resizeImage(file, 800, 600, 0.8);
-        setAssetForm({ ...assetForm, photo: resizedPhoto });
-      } catch (error) {
-        console.error('Erro ao processar foto:', error);
-        alert('Erro ao processar foto');
-      }
-    }
-  };
-
-  const removePhotoFromForm = () => {
-    setAssetForm({ ...assetForm, photo: null });
-  };
-
-  const openPhotoOptions = () => {
-    setShowPhotoOptions(true);
-  };
-
-  const getRoomsForFloor = (floorId) => {
-    const floor = floors.find(f => f.id == floorId);
-    return floor ? floor.rooms || [] : [];
-  };
-
-  const getFloorName = (floorId) => {
-    const floor = floors.find(f => f.id == floorId);
-    return floor ? floor.name : 'Andar não encontrado';
-  };
-
-  const getRoomName = (roomId) => {
-    for (const floor of floors) {
-      const room = floor.rooms?.find(r => r.id == roomId);
-      if (room) return room.name;
-    }
-    return 'Sala não encontrada';
-  };
-
-  const handleLogout = async () => {
-    if (confirm('Tem certeza que deseja sair?')) {
-      await signOut();
-    }
-  };
-
-  const getDashboardStats = () => {
-    const total = assets.length;
-    const active = assets.filter(a => a.status === 'Ativo').length;
-    const maintenance = assets.filter(a => a.status === 'Manutenção').length;
-    const totalValue = assets.reduce((sum, asset) => sum + (parseFloat(asset.value) || 0), 0);
-
-    return { total, active, maintenance, totalValue };
-  };
-
-  const getFilteredAssets = () => {
-    return assets.filter(asset => {
-      const matchesSearch = asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           asset.code.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = !filterStatus || asset.status === filterStatus;
-      const matchesCategory = !filterCategory || asset.category === filterCategory;
-      
-      return matchesSearch && matchesStatus && matchesCategory;
-    });
-  };
-
-  const stats = getDashboardStats();
-  const filteredAssets = getFilteredAssets();
-
-  return (
-    <>
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
-        {/* Header Moderno */}
-        <div className="bg-white/80 backdrop-blur-xl shadow-lg border-b border-white/20 sticky top-0 z-40">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                  <Icons.Package />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">
-                    AssetManager Pro
-                  </h1>
-                  <p className="text-sm text-gray-600 font-medium">Sistema Inteligente de Controle de Ativos</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => setActiveTab('profile')}
-                  className="group flex items-center space-x-3 hover:bg-white/10 rounded-xl p-2 transition-all"
-                >
-                  {profile?.photo ? (
-                    <div className="w-12 h-12 rounded-full overflow-hidden border-3 border-gradient-to-r from-blue-500 to-purple-500 shadow-lg ring-2 ring-white group-hover:ring-blue-200 transition-all">
-                      <img src={profile.photo} alt="Avatar" className="w-full h-full object-cover" />
-                    </div>
-                  ) : (
-                    <div className="w-12 h-12 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center shadow-lg ring-2 ring-white group-hover:ring-blue-200 transition-all">
-                      <Icons.User />
-                    </div>
-                  )}
-                  
-                  <div className="hidden md:block text-left">
-                    <p className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{profile?.name}</p>
-                    <p className="text-xs text-gray-500">{profile?.email}</p>
-                    {profile?.company && (
-                      <p className="text-xs text-blue-600 font-medium">{profile.company}</p>
-                    )}
-                  </div>
-                </button>
-                
-                <button
-                  onClick={handleLogout}
-                  className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
-                >
-                  Sair
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Navegação Moderna */}
-        <div className="bg-white/60 backdrop-blur-lg border-b border-white/20">
-          <div className="max-w-7xl mx-auto px-4">
-            <div className="flex space-x-1">
-              {[
-                { id: 'dashboard', label: 'Dashboard', icon: Icons.BarChart3, gradient: 'from-blue-500 to-cyan-500' },
-                { id: 'assets', label: 'Ativos', icon: Icons.Package, gradient: 'from-purple-500 to-pink-500' },
-                { id: 'locations', label: 'Localizações', icon: Icons.Building, gradient: 'from-green-500 to-emerald-500' }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 px-6 py-4 font-bold transition-all duration-200 relative ${
-                    activeTab === tab.id
-                      ? 'text-white'
-                      : 'text-gray-600 hover:text-gray-800'
-                  }`}
-                >
-                  {activeTab === tab.id && (
-                    <div className={`absolute inset-0 bg-gradient-to-r ${tab.gradient} rounded-xl shadow-lg`}></div>
-                  )}
-                  <div className="relative z-10 flex items-center space-x-2">
-                    <tab.icon />
-                    <span>{tab.label}</span>
-                  </div>
-                  {activeTab === tab.id && (
-                    <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-white rounded-full shadow-lg"></div>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Conteúdo Principal */}
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          {/* Aviso para usuários sem time */}
-          {!user?.team_id && (
-            <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-3xl p-6 mb-8 shadow-lg">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-lg">
-                  <Icons.AlertCircle />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold text-orange-900 mb-2">⚠️ Time não definido</h3>
-                  <p className="text-orange-700 font-medium mb-3">
-                    Você precisa estar em um time para gerenciar ativos. Clique no seu perfil para selecionar um time.
-                  </p>
-                  <button
-                    onClick={() => setActiveTab('profile')}
-                    className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
-                  >
-                    🏢 Selecionar Time
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Perfil só aparece quando clicado */
-          {activeTab === 'profile' && (
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-4">
-                  <button
-                    onClick={() => setActiveTab('dashboard')}
-                    className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-bold transition-colors"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                    <span>Voltar ao Dashboard</span>
-                  </button>
-                </div>
-                
-                <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-4 py-2 rounded-full text-sm font-bold">
-                  👤 Perfil do Usuário
-                </div>
-              </div>
-              
-              <ProfilePage />
-            </div>
-          )}
-          
-          {activeTab === 'dashboard' && (
-            <div className="space-y-8">
-              <div className="text-center mb-8">
-                <h2 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent mb-4">
-                  Dashboard Executivo
-                </h2>
-                <p className="text-gray-600 text-lg font-medium">Visão completa dos seus ativos empresariais</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-8 shadow-xl border border-white/20 hover:shadow-2xl transition-all transform hover:scale-105">
-                  <div className="flex items-center">
-                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg">
-                      <Icons.Package />
-                    </div>
-                    <div className="ml-6">
-                      <p className="text-sm font-bold text-gray-600 uppercase tracking-wider">Total de Ativos</p>
-                      <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                        {stats.total}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-8 shadow-xl border border-white/20 hover:shadow-2xl transition-all transform hover:scale-105">
-                  <div className="flex items-center">
-                    <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center shadow-lg">
-                      <Icons.CheckCircle />
-                    </div>
-                    <div className="ml-6">
-                      <p className="text-sm font-bold text-gray-600 uppercase tracking-wider">Ativos Ativos</p>
-                      <p className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                        {stats.active}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-8 shadow-xl border border-white/20 hover:shadow-2xl transition-all transform hover:scale-105">
-                  <div className="flex items-center">
-                    <div className="w-16 h-16 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg">
-                      <span className="text-white font-bold text-xl">🔧</span>
-                    </div>
-                    <div className="ml-6">
-                      <p className="text-sm font-bold text-gray-600 uppercase tracking-wider">Em Manutenção</p>
-                      <p className="text-3xl font-bold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">
-                        {stats.maintenance}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-8 shadow-xl border border-white/20 hover:shadow-2xl transition-all transform hover:scale-105">
-                  <div className="flex items-center">
-                    <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg">
-                      <Icons.DollarSign />
-                    </div>
-                    <div className="ml-6">
-                      <p className="text-sm font-bold text-gray-600 uppercase tracking-wider">Valor Total</p>
-                      <p className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                        R$ {stats.totalValue.toLocaleString('pt-BR')}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Gráfico de Status dos Ativos */}
-              <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-8 shadow-xl border border-white/20">
-                <h3 className="text-2xl font-bold text-gray-900 mb-6">📊 Distribuição por Status</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {statuses.map(status => {
-                    const count = assets.filter(a => a.status === status).length;
-                    const percentage = assets.length > 0 ? (count / assets.length * 100).toFixed(1) : 0;
-                    
-                    return (
-                      <div key={status} className="text-center p-4">
-                        <StatusBadge status={status} />
-                        <p className="text-2xl font-bold text-gray-900 mt-3">{count}</p>
-                        <p className="text-sm text-gray-600">{percentage}%</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'assets' && (
-            <div className="space-y-8">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                  <h2 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-purple-800 to-gray-900 bg-clip-text text-transparent mb-2">
-                    Gestão de Ativos
-                  </h2>
-                  <p className="text-gray-600 text-lg font-medium">Controle completo dos seus equipamentos e bens</p>
-                </div>
-                
-                <button
-                  onClick={() => setShowAssetForm(true)}
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-4 rounded-2xl flex items-center space-x-3 font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all"
-                >
-                  <Icons.Plus />
-                  <span>➕ Novo Ativo</span>
-                </button>
-              </div>
-
-              {/* Filtros Modernos */}
-              <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-white/20">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">🔍 Filtros e Busca</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Buscar por nome ou código</label>
-                    <input
-                      type="text"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                      placeholder="Digite para buscar..."
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Filtrar por status</label>
-                    <select
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                    >
-                      <option value="">Todos os status</option>
-                      {statuses.map(status => (
-                        <option key={status} value={status}>{status}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Filtrar por categoria</label>
-                    <select
-                      value={filterCategory}
-                      onChange={(e) => setFilterCategory(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                    >
-                      <option value="">Todas as categorias</option>
-                      {categories.map(category => (
-                        <option key={category} value={category}>{category}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {isLoading ? (
-                <div className="text-center py-20">
-                  <div className="w-16 h-16 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-6"></div>
-                  <p className="text-gray-600 text-lg font-medium">Carregando ativos...</p>
-                </div>
-              ) : (
-                <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 overflow-hidden">
-                  <div className="px-8 py-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-                    <h3 className="text-xl font-bold text-gray-900">
-                      📦 Seus Ativos ({filteredAssets.length} de {assets.length})
-                    </h3>
-                  </div>
-                  
-                  {filteredAssets.length === 0 ? (
-                    <div className="text-center py-20">
-                      <div className="w-20 h-20 bg-gradient-to-br from-gray-200 to-gray-300 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                        <Icons.Package />
-                      </div>
-                      <h3 className="text-xl font-bold text-gray-900 mb-2">
-                        {assets.length === 0 ? 'Nenhum ativo cadastrado' : 'Nenhum ativo encontrado'}
-                      </h3>
-                      <p className="text-gray-600 mb-8">
-                        {assets.length === 0 
-                          ? 'Comece criando seu primeiro ativo no sistema' 
-                          : 'Tente ajustar os filtros de busca'
-                        }
-                      </p>
-                      {assets.length === 0 && (
-                        <button
-                          onClick={() => setShowAssetForm(true)}
-                          className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-4 rounded-2xl font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all"
-                        >
-                          ➕ Criar Primeiro Ativo
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 p-8">
-                      {filteredAssets.map(asset => (
-                        <div key={asset.id} className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all transform hover:scale-105">
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex-1">
-                              <h4 className="font-bold text-lg text-gray-900 mb-1">{asset.name}</h4>
-                              <p className="text-sm text-gray-600 font-mono bg-gray-100 px-2 py-1 rounded-lg inline-block">
-                                {asset.code}
-                              </p>
-                            </div>
-                            
-                            <div className="flex space-x-2">
-                              <button
-                                onClick={() => setShowAssetDetail(asset)}
-                                className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-xl transition-colors"
-                                title="Ver detalhes"
-                              >
-                                <Icons.Eye />
-                              </button>
-                              <button
-                                onClick={() => handleEditAsset(asset)}
-                                className="p-2 bg-purple-100 hover:bg-purple-200 text-purple-600 rounded-xl transition-colors"
-                                title="Editar"
-                              >
-                                <Icons.Edit />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteAsset(asset)}
-                                className="p-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-xl transition-colors"
-                                title="Excluir"
-                              >
-                                <Icons.Trash2 />
-                              </button>
-                            </div>
-                          </div>
-
-                          {asset.photo && (
-                            <div className="w-full h-32 bg-gray-100 rounded-xl overflow-hidden mb-4">
-                              <img 
-                                src={asset.photo} 
-                                alt={asset.name} 
-                                className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
-                              />
-                            </div>
-                          )}
-
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-gray-600">Status:</span>
-                              <StatusBadge status={asset.status} />
-                            </div>
-                            
-                            {asset.category && (
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-gray-600">Categoria:</span>
-                                <span className="text-sm font-bold text-gray-900">{asset.category}</span>
-                              </div>
-                            )}
-                            
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-gray-600">Local:</span>
-                              <span className="text-sm font-bold text-gray-900">
-                                {getFloorName(asset.floor_id)}
-                                {asset.room_id && ` - ${getRoomName(asset.room_id)}`}
-                              </span>
-                            </div>
-                            
-                            {asset.value && (
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-gray-600">Valor:</span>
-                                <span className="text-sm font-bold text-green-600">
-                                  R$ {parseFloat(asset.value).toLocaleString('pt-BR', {
-                                    minimumFractionDigits: 2
-                                  })}
-                                </span>
-                              </div>
-                            )}
-                            
-                            <div className="pt-2 border-t border-gray-100">
-                              <span className="text-xs text-gray-500">
-                                Criado em {new Date(asset.created_at).toLocaleDateString('pt-BR')}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'locations' && (
-            <div className="space-y-8">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                  <h2 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-green-800 to-gray-900 bg-clip-text text-transparent mb-2">
-                    Localizações
-                  </h2>
-                  <p className="text-gray-600 text-lg font-medium">Organize andares e salas da sua empresa</p>
-                </div>
-                
-                <div className="flex space-x-4">
-                  <button
-                    onClick={() => setShowFloorForm(true)}
-                    className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white px-8 py-4 rounded-2xl flex items-center space-x-3 font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all"
-                  >
-                    <Icons.Plus />
-                    <span>🏢 Adicionar Andar</span>
-                  </button>
-                  
-                  <button
-                    onClick={() => setShowRoomForm(true)}
-                    className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-8 py-4 rounded-2xl flex items-center space-x-3 font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all"
-                  >
-                    <Icons.Plus />
-                    <span>🚪 Nova Sala</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 p-8">
-                <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-                  <Icons.Building />
-                  <span className="ml-3">🏢 Andares ({floors.length})</span>
-                </h3>
-                
-                {floors.length === 0 ? (
-                  <div className="text-center py-16">
-                    <div className="w-20 h-20 bg-gradient-to-br from-gray-200 to-gray-300 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                      <Icons.Building />
-                    </div>
-                    <h4 className="text-xl font-bold text-gray-900 mb-2">Carregando andares padrão...</h4>
-                    <p className="text-gray-600 mb-8">Os andares 5º, 11º e 15º serão criados automaticamente</p>
-                    <div className="flex items-center justify-center space-x-2">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                      <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {floors.map(floor => {
-                      const isDefaultFloor = ['5', '11', '15'].some(num => floor.name.includes(num));
-                      
-                      return (
-                        <div key={floor.id} className={`${
-                          isDefaultFloor 
-                            ? 'bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200' 
-                            : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200'
-                        } border rounded-2xl p-6 hover:shadow-lg transition-all relative`}>
-                          {isDefaultFloor && (
-                            <div className="absolute top-2 right-2">
-                              <span className="bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-bold">
-                                ⭐ Padrão
-                              </span>
-                            </div>
-                          )}
-                          
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="pr-16">
-                              <h4 className={`text-lg font-bold ${
-                                isDefaultFloor ? 'text-blue-900' : 'text-green-900'
-                              }`}>
-                                {floor.name}
-                              </h4>
-                              {floor.description && (
-                                <p className={`text-sm mt-1 ${
-                                  isDefaultFloor ? 'text-blue-700' : 'text-green-700'
-                                }`}>
-                                  {floor.description}
-                                </p>
-                              )}
-                            </div>
-                            <span className={`${
-                              isDefaultFloor 
-                                ? 'bg-blue-100 text-blue-800' 
-                                : 'bg-green-100 text-green-800'
-                            } px-3 py-1 rounded-full text-xs font-bold`}>
-                              {floor.rooms?.length || 0} sala(s)
-                            </span>
-                          </div>
-                          
-                          {floor.rooms && floor.rooms.length > 0 && (
-                            <div className="space-y-2">
-                              <h5 className={`text-sm font-bold mb-2 ${
-                                isDefaultFloor ? 'text-blue-800' : 'text-green-800'
-                              }`}>
-                                🚪 Salas:
-                              </h5>
-                              {floor.rooms.map(room => (
-                                <div key={room.id} className={`bg-white/80 rounded-lg p-3 border ${
-                                  isDefaultFloor ? 'border-blue-100' : 'border-green-100'
-                                } relative group`}>
-                                  
-                                  {/* Botões de ação para salas */}
-                                  <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button
-                                      onClick={() => handleEditRoom(room)}
-                                      className="p-1 bg-white hover:bg-blue-100 text-blue-600 rounded transition-colors shadow-sm text-xs"
-                                      title="Editar sala"
-                                    >
-                                      <Icons.Edit />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteRoom(room)}
-                                      className="p-1 bg-white hover:bg-red-100 text-red-600 rounded transition-colors shadow-sm text-xs"
-                                      title="Excluir sala"
-                                    >
-                                      <Icons.Trash2 />
-                                    </button>
-                                  </div>
-                                  
-                                  <div className="pr-12">
-                                    <p className={`font-medium ${
-                                      isDefaultFloor ? 'text-blue-900' : 'text-green-900'
-                                    }`}>
-                                      {room.name}
-                                    </p>
-                                    {room.description && (
-                                      <p className={`text-xs mt-1 ${
-                                        isDefaultFloor ? 'text-blue-600' : 'text-green-600'
-                                      }`}>
-                                        {room.description}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Input para upload de fotos */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleFileSelect}
-        className="hidden"
-      />
-
-      {/* Modal de Opções de Foto */}
-      <PhotoOptionsModal
-        isOpen={showPhotoOptions}
-        onClose={() => setShowPhotoOptions(false)}
-        onCameraSelect={handlePhotoCapture}
-        onGallerySelect={handlePhotoGallery}
-      />
-
-      {/* Modal de Ativo */}
-      {showAssetForm && (
-        <AssetFormModal 
-          showAssetForm={showAssetForm}
-          setShowAssetForm={setShowAssetForm}
-          editingAsset={editingAsset}
-          setEditingAsset={setEditingAsset}
-          assetForm={assetForm}
-          setAssetForm={setAssetForm}
-          handleSaveAsset={handleSaveAsset}
-          resetAssetForm={resetAssetForm}
-          isLoading={isLoading}
-          categories={categories}
-          statuses={statuses}
-          floors={floors}
-          getRoomsForFloor={getRoomsForFloor}
-          openPhotoOptions={openPhotoOptions}
-          removePhotoFromForm={removePhotoFromForm}
-          Icons={Icons}
-        />
-      )}
-
-      {/* Modal de Sala */}
-      {showRoomForm && (
-        <RoomFormModal
-          showRoomForm={showRoomForm}
-          setShowRoomForm={setShowRoomForm}
-          editingRoom={editingRoom}
-          setEditingRoom={setEditingRoom}
-          roomForm={roomForm}
-          setRoomForm={setRoomForm}
-          handleSaveRoom={handleSaveRoom}
-          isLoading={isLoading}
-          floors={floors}
-          Icons={Icons}
-        />
-      )}
-
-      {/* Modal de Andar */}
-      {showFloorForm && (
-        <FloorFormModal
-          showFloorForm={showFloorForm}
-          setShowFloorForm={setShowFloorForm}
-          editingFloor={editingFloor}
-          setEditingFloor={setEditingFloor}
-          floorForm={floorForm}
-          setFloorForm={setFloorForm}
-          handleSaveFloor={handleSaveFloor}
-          isLoading={isLoading}
-          Icons={Icons}
-        />
-      )}
-
-      {/* Modal de Detalhes do Ativo */}
-      {showAssetDetail && (
-        <AssetDetailModal
-          showAssetDetail={showAssetDetail}
-          setShowAssetDetail={setShowAssetDetail}
-          handleEditAsset={handleEditAsset}
-          getFloorName={getFloorName}
-          getRoomName={getRoomName}
-          StatusBadge={StatusBadge}
-          Icons={Icons}
-        />
-      )}
-    </>
-  );
-};
-
-// =================== MODAIS SEPARADOS ===================
-const AssetFormModal = ({ 
-  showAssetForm, 
-  setShowAssetForm, 
-  editingAsset, 
-  setEditingAsset, 
-  assetForm, 
-  setAssetForm, 
-  handleSaveAsset, 
-  resetAssetForm, 
-  isLoading, 
-  categories, 
-  statuses, 
-  floors, 
-  getRoomsForFloor, 
-  openPhotoOptions, 
-  removePhotoFromForm,
-  Icons 
-}) => {
-  if (!showAssetForm) return null;
-
-  return (
-    <div className="fixed inset-0 bg-gradient-to-br from-slate-900/80 via-purple-900/80 to-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white/95 backdrop-blur-xl rounded-3xl w-full max-w-6xl max-h-[95vh] overflow-y-auto shadow-2xl border border-white/20">
-        <div className="p-8">
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-purple-800 to-gray-900 bg-clip-text text-transparent">
-                {editingAsset ? '✏️ Editar Ativo' : '➕ Novo Ativo'}
-              </h3>
-              <p className="text-gray-600 mt-2 font-medium">
-                {editingAsset ? 'Atualize as informações do ativo' : 'Cadastre um novo ativo no sistema'}
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                setShowAssetForm(false);
-                setEditingAsset(null);
-                resetAssetForm();
-              }}
-              className="p-3 hover:bg-gray-100 rounded-2xl transition-colors"
-            >
-              <Icons.X />
-            </button>
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-3">Nome do Ativo *</label>
-                <input
-                  type="text"
-                  value={assetForm.name}
-                  onChange={(e) => setAssetForm({...assetForm, name: e.target.value})}
-                  className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-medium"
-                  placeholder="Ex: Notebook Dell Inspiron 15"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-3">Código *</label>
-                <input
-                  type="text"
-                  value={assetForm.code}
-                  onChange={(e) => setAssetForm({...assetForm, code: e.target.value})}
-                  className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-mono"
-                  placeholder="Ex: NB-001"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-3">Categoria</label>
-                <select
-                  value={assetForm.category}
-                  onChange={(e) => setAssetForm({...assetForm, category: e.target.value})}
-                  className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-medium"
-                >
-                  <option value="">🏷️ Selecione uma categoria</option>
-                  {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-3">Status</label>
-                <select
-                  value={assetForm.status}
-                  onChange={(e) => setAssetForm({...assetForm, status: e.target.value})}
-                  className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-medium"
-                >
-                  {statuses.map(status => (
-                    <option key={status} value={status}>{status}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-3">Andar *</label>
-                <select
-                  value={assetForm.floor_id}
-                  onChange={(e) => setAssetForm({...assetForm, floor_id: e.target.value, room_id: ''})}
-                  className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-medium"
-                >
-                  <option value="">🏢 Selecione um andar</option>
-                  {floors.map(floor => (
-                    <option key={floor.id} value={floor.id}>{floor.name}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-3">Sala</label>
-                <select
-                  value={assetForm.room_id}
-                  onChange={(e) => setAssetForm({...assetForm, room_id: e.target.value})}
-                  className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-medium"
-                  disabled={!assetForm.floor_id}
-                >
-                  <option value="">🚪 Selecione uma sala (opcional)</option>
-                  {getRoomsForFloor(assetForm.floor_id).map(room => (
-                    <option key={room.id} value={room.id}>{room.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            
-            <div className="space-y-6">
-              {/* SEÇÃO DE FOTO */}
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-4">📷 Foto do Ativo</label>
-                <div className="space-y-4">
-                  {assetForm.photo ? (
-                    <div className="relative">
-                      <div className="w-full h-64 bg-gradient-to-br from-gray-100 to-gray-200 rounded-3xl overflow-hidden border-4 border-white shadow-xl">
-                        <img 
-                          src={assetForm.photo} 
-                          alt="Foto do ativo" 
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex space-x-3 mt-4">
-                        <button
-                          type="button"
-                          onClick={openPhotoOptions}
-                          className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white px-4 py-4 rounded-2xl flex items-center justify-center space-x-3 text-sm font-bold transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
-                        >
-                          <Icons.Camera />
-                          <span>📷 Alterar Foto</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={removePhotoFromForm}
-                          className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white px-4 py-4 rounded-2xl flex items-center justify-center transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
-                        >
-                          <Icons.Trash2 />
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div 
-                      onClick={openPhotoOptions}
-                      className="w-full h-64 border-4 border-dashed border-purple-300 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all duration-200 bg-gradient-to-br from-purple-50/50 via-blue-50/50 to-cyan-50/50 backdrop-blur-sm group"
-                    >
-                      <div className="text-center p-8">
-                        <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform shadow-lg">
-                          <Icons.Camera />
-                        </div>
-                        <p className="text-gray-700 font-bold text-lg mb-2">📷 Clique para adicionar foto</p>
-                        <p className="text-gray-600 font-medium mb-4">
-                          Tire uma foto ou escolha da galeria
-                        </p>
-                        <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 rounded-2xl text-sm font-bold border border-purple-200">
-                          <Icons.Sparkles />
-                          <span className="ml-2">Recomendado</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-3">Valor (R$)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={assetForm.value}
-                  onChange={(e) => setAssetForm({...assetForm, value: e.target.value})}
-                  className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-medium"
-                  placeholder="Ex: 2500.00"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-3">Fornecedor</label>
-                <input
-                  type="text"
-                  value={assetForm.supplier}
-                  onChange={(e) => setAssetForm({...assetForm, supplier: e.target.value})}
-                  className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-medium"
-                  placeholder="Ex: Dell Brasil"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-3">Número de Série</label>
-                <input
-                  type="text"
-                  value={assetForm.serial_number}
-                  onChange={(e) => setAssetForm({...assetForm, serial_number: e.target.value})}
-                  className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-mono"
-                  placeholder="Ex: DL24001"
-                />
-              </div>
-            </div>
-          </div>
-          
-          <div className="mt-8">
-            <label className="block text-sm font-bold text-gray-700 mb-3">Descrição</label>
-            <textarea
-              value={assetForm.description}
-              onChange={(e) => setAssetForm({...assetForm, description: e.target.value})}
-              rows={4}
-              className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-medium resize-none"
-              placeholder="Descrição detalhada do ativo..."
-            />
-          </div>
-          
-          <div className="flex justify-end space-x-4 mt-10 pt-6 border-t border-gray-200">
-            <button
-              onClick={() => {
-                setShowAssetForm(false);
-                setEditingAsset(null);
-                resetAssetForm();
-              }}
-              className="px-8 py-4 border-2 border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all font-bold"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleSaveAsset}
-              disabled={isLoading}
-              className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-400 text-white rounded-2xl transition-all font-bold shadow-lg hover:shadow-xl transform hover:scale-105"
-            >
-              {isLoading ? (
-                <div className="flex items-center space-x-2">
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span>Salvando...</span>
-                </div>
-              ) : (
-                editingAsset ? '✅ Atualizar Ativo' : '💾 Salvar Ativo'
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const RoomFormModal = ({ 
-  showRoomForm, 
-  setShowRoomForm, 
-  editingRoom, 
-  setEditingRoom, 
-  roomForm, 
-  setRoomForm, 
-  handleSaveRoom, 
-  isLoading, 
-  floors,
-  Icons 
-}) => {
-  if (!showRoomForm) return null;
-
-  return (
-    <div className="fixed inset-0 bg-gradient-to-br from-slate-900/80 via-purple-900/80 to-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white/95 backdrop-blur-xl rounded-3xl w-full max-w-md shadow-2xl border border-white/20">
-        <div className="p-8">
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-green-800 to-gray-900 bg-clip-text text-transparent">
-                {editingRoom ? '✏️ Editar Sala' : '🚪 Nova Sala'}
-              </h3>
-              <p className="text-gray-600 mt-2 font-medium">
-                {editingRoom ? 'Atualize as informações da sala' : 'Adicione uma nova sala ao sistema'}
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                setShowRoomForm(false);
-                setEditingRoom(null);
-                setRoomForm({ name: '', description: '', floor_id: '' });
-              }}
-              className="p-2 hover:bg-gray-100 rounded-2xl transition-colors"
-            >
-              <Icons.X />
-            </button>
-          </div>
-          
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-3">Nome da Sala *</label>
-              <input
-                type="text"
-                value={roomForm.name}
-                onChange={(e) => setRoomForm({...roomForm, name: e.target.value})}
-                className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-medium"
-                placeholder="Ex: Sala de Reuniões A"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-3">Andar *</label>
-              <select
-                value={roomForm.floor_id}
-                onChange={(e) => setRoomForm({...roomForm, floor_id: e.target.value})}
-                className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-medium"
-              >
-                <option value="">🏢 Selecione um andar</option>
-                {floors.map(floor => (
-                  <option key={floor.id} value={floor.id}>{floor.name}</option>
-                ))}
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-3">Descrição</label>
-              <textarea
-                value={roomForm.description}
-                onChange={(e) => setRoomForm({...roomForm, description: e.target.value})}
-                rows={4}
-                className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-medium resize-none"
-                placeholder="Descrição da sala..."
-              />
-            </div>
-          </div>
-          
-          <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray-200">
-            <button
-              onClick={() => {
-                setShowRoomForm(false);
-                setEditingRoom(null);
-                setRoomForm({ name: '', description: '', floor_id: '' });
-              }}
-              className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all font-bold"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleSaveRoom}
-              disabled={isLoading}
-              className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-400 disabled:to-gray-400 text-white rounded-2xl transition-all font-bold shadow-lg hover:shadow-xl transform hover:scale-105"
-            >
-              {isLoading ? (
-                <div className="flex items-center space-x-2">
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span>Salvando...</span>
-                </div>
-              ) : (
-                editingRoom ? '✅ Atualizar Sala' : '💾 Salvar Sala'
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const FloorFormModal = ({ 
-  showFloorForm, 
-  setShowFloorForm, 
-  editingFloor,
-  setEditingFloor,
-  floorForm, 
-  setFloorForm, 
-  handleSaveFloor, 
-  isLoading,
-  Icons 
-}) => {
-  if (!showFloorForm) return null;
-
-  return (
-    <div className="fixed inset-0 bg-gradient-to-br from-slate-900/80 via-purple-900/80 to-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white/95 backdrop-blur-xl rounded-3xl w-full max-w-md shadow-2xl border border-white/20">
-        <div className="p-8">
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-gray-900 bg-clip-text text-transparent">
-                {editingFloor ? '✏️ Editar Andar' : '🏢 Novo Andar'}
-              </h3>
-              <p className="text-gray-600 mt-2 font-medium">
-                {editingFloor ? 'Atualize as informações do andar' : 'Adicione um novo andar ao sistema'}
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                setShowFloorForm(false);
-                setEditingFloor(null);
-                setFloorForm({ name: '', description: '' });
-              }}
-              className="p-2 hover:bg-gray-100 rounded-2xl transition-colors"
-            >
-              <Icons.X />
-            </button>
-          </div>
-          
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-3">Nome do Andar *</label>
-              <input
-                type="text"
-                value={floorForm.name}
-                onChange={(e) => setFloorForm({...floorForm, name: e.target.value})}
-                className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-medium"
-                placeholder="Ex: 1º Andar, Térreo, Subsolo"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-3">Descrição</label>
-              <textarea
-                value={floorForm.description}
-                onChange={(e) => setFloorForm({...floorForm, description: e.target.value})}
-                rows={4}
-                className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm font-medium resize-none"
-                placeholder="Descrição do andar (opcional)..."
-              />
-            </div>
-          </div>
-          
-          <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray-200">
-            <button
-              onClick={() => {
-                setShowFloorForm(false);
-                setEditingFloor(null);
-                setFloorForm({ name: '', description: '' });
-              }}
-              className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all font-bold"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleSaveFloor}
-              disabled={isLoading}
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 disabled:from-gray-400 disabled:to-gray-400 text-white rounded-2xl transition-all font-bold shadow-lg hover:shadow-xl transform hover:scale-105"
-            >
-              {isLoading ? (
-                <div className="flex items-center space-x-2">
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span>Salvando...</span>
-                </div>
-              ) : (
-                editingFloor ? '✅ Atualizar Andar' : '💾 Salvar Andar'
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const AssetDetailModal = ({ 
-  showAssetDetail, 
-  setShowAssetDetail, 
-  handleEditAsset, 
-  getFloorName, 
-  getRoomName, 
-  StatusBadge,
-  Icons 
-}) => {
-  if (!showAssetDetail) return null;
-
-  return (
-    <div className="fixed inset-0 bg-gradient-to-br from-slate-900/80 via-purple-900/80 to-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white/95 backdrop-blur-xl rounded-3xl w-full max-w-6xl max-h-[95vh] overflow-y-auto shadow-2xl border border-white/20">
-        <div className="p-8">
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-gray-900 bg-clip-text text-transparent">
-                🔍 Detalhes do Ativo
-              </h3>
-              <p className="text-gray-600 mt-2 font-medium">Informações completas do ativo</p>
-            </div>
-            <button
-              onClick={() => setShowAssetDetail(null)}
-              className="p-3 hover:bg-gray-100 rounded-2xl transition-colors"
-            >
-              <Icons.X />
-            </button>
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="space-y-6">
-              <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-6 rounded-2xl border border-blue-100">
-                <label className="block text-sm font-bold text-blue-700 mb-2">Nome</label>
-                <p className="text-xl font-bold text-blue-900">{showAssetDetail.name}</p>
-              </div>
-              
-              <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-2xl border border-purple-100">
-                <label className="block text-sm font-bold text-purple-700 mb-2">Código</label>
-                <p className="text-lg font-mono font-bold text-purple-900 bg-white/70 px-3 py-2 rounded-xl inline-block">
-                  {showAssetDetail.code}
-                </p>
-              </div>
-              
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-2xl border border-green-100">
-                <label className="block text-sm font-bold text-green-700 mb-3">Categoria</label>
-                <span className="inline-block px-4 py-2 bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 rounded-2xl text-sm font-bold border border-green-200">
-                  {showAssetDetail.category || 'Sem categoria'}
-                </span>
-              </div>
-              
-              <div className="bg-gradient-to-r from-orange-50 to-red-50 p-6 rounded-2xl border border-orange-100">
-                <label className="block text-sm font-bold text-orange-700 mb-3">Status</label>
-                <StatusBadge status={showAssetDetail.status} />
-              </div>
-              
-              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 p-6 rounded-2xl border border-indigo-100">
-                <label className="block text-sm font-bold text-indigo-700 mb-2">Localização</label>
-                <div className="flex items-center space-x-2 text-indigo-900">
-                  <Icons.MapPin />
-                  <p className="font-bold text-lg">
-                    {getFloorName(showAssetDetail.floor_id)} {showAssetDetail.room_id ? `- ${getRoomName(showAssetDetail.room_id)}` : '(Sem sala específica)'}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="bg-gradient-to-r from-yellow-50 to-orange-50 p-6 rounded-2xl border border-yellow-100">
-                <label className="block text-sm font-bold text-yellow-700 mb-2">Valor</label>
-                <div className="flex items-center space-x-2">
-                  <Icons.DollarSign />
-                  <p className="text-xl font-bold text-yellow-900">
-                    {showAssetDetail.value ? 
-                      `R$ ${parseFloat(showAssetDetail.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 
-                      'Não informado'
-                    }
-                  </p>
-                </div>
-              </div>
-
-              {showAssetDetail.supplier && (
-                <div className="bg-gradient-to-r from-teal-50 to-cyan-50 p-6 rounded-2xl border border-teal-100">
-                  <label className="block text-sm font-bold text-teal-700 mb-2">Fornecedor</label>
-                  <p className="text-lg font-bold text-teal-900">{showAssetDetail.supplier}</p>
-                </div>
-              )}
-
-              {showAssetDetail.serial_number && (
-                <div className="bg-gradient-to-r from-rose-50 to-pink-50 p-6 rounded-2xl border border-rose-100">
-                  <label className="block text-sm font-bold text-rose-700 mb-2">Número de Série</label>
-                  <p className="text-lg font-mono font-bold text-rose-900 bg-white/70 px-3 py-2 rounded-xl inline-block">
-                    {showAssetDetail.serial_number}
-                  </p>
-                </div>
-              )}
-            </div>
-            
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-4">📷 Foto do Ativo</label>
-                <div className="w-full h-80 bg-gradient-to-br from-gray-100 to-gray-200 rounded-3xl overflow-hidden border-4 border-white shadow-xl">
-                  {showAssetDetail.photo ? (
-                    <img 
-                      src={showAssetDetail.photo} 
-                      alt={showAssetDetail.name} 
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300">
-                      <div className="text-center">
-                        <div className="w-16 h-16 bg-gray-400 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                          <Icons.Camera />
-                        </div>
-                        <span className="text-gray-600 font-bold">Nenhuma foto disponível</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              {showAssetDetail.description && (
-                <div className="bg-gradient-to-r from-slate-50 to-gray-50 p-6 rounded-2xl border border-slate-200">
-                  <label className="block text-sm font-bold text-slate-700 mb-3">📝 Descrição</label>
-                  <p className="text-slate-900 font-medium leading-relaxed">{showAssetDetail.description}</p>
-                </div>
-              )}
-
-              <div className="bg-gradient-to-r from-gray-50 to-slate-50 p-6 rounded-2xl border border-gray-200">
-                <label className="block text-sm font-bold text-gray-700 mb-4">🔧 Informações do Sistema</label>
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-center justify-between p-3 bg-white/80 rounded-xl">
-                    <span className="font-bold text-gray-600">Criado em:</span>
-                    <span className="font-mono text-gray-900">
-                      {new Date(showAssetDetail.created_at).toLocaleDateString('pt-BR')}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-white/80 rounded-xl">
-                    <span className="font-bold text-gray-600">Última atualização:</span>
-                    <span className="font-mono text-gray-900">
-                      {new Date(showAssetDetail.updated_at).toLocaleDateString('pt-BR')}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex justify-end space-x-4 mt-10 pt-6 border-t border-gray-200">
-            <button
-              onClick={() => {
-                setShowAssetDetail(null);
-                handleEditAsset(showAssetDetail);
-              }}
-              className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-2xl transition-all font-bold shadow-lg hover:shadow-xl transform hover:scale-105"
-            >
-              <div className="flex items-center space-x-2">
-                <Icons.Edit />
-                <span>✏️ Editar Ativo</span>
-              </div>
-            </button>
-            <button
-              onClick={() => setShowAssetDetail(null)}
-              className="px-8 py-4 border-2 border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all font-bold"
-            >
-              Fechar
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// =================== COMPONENTE PRINCIPAL ===================
-const App = () => {
-  const { user, loading, dbReady, connectionError } = useAuth();
-  const [showAuthModal, setShowAuthModal] = useState(false);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-500 rounded-3xl flex items-center justify-center mx-auto mb-6 animate-pulse shadow-2xl">
-            <Icons.Package />
-          </div>
-          <div className="space-y-2">
-            <p className="text-gray-800 text-xl font-bold">Conectando ao NeonDB...</p>
-            <div className="flex items-center justify-center space-x-1">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
-              <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-              <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (connectionError) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-red-50 flex items-center justify-center p-4">
-        <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-10 max-w-md w-full shadow-2xl border border-white/20 text-center">
-          <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-pink-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl">
-            <Icons.AlertCircle />
-          </div>
-          <h2 className="text-2xl font-bold text-red-800 mb-4">❌ Erro de Conexão</h2>
-          <p className="text-red-600 mb-6 font-medium">{connectionError}</p>
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
-            <p className="text-sm text-red-700 font-medium">
-              💡 Verifique se a variável <code className="bg-red-100 px-2 py-1 rounded font-mono">VITE_DATABASE_URL</code> está configurada corretamente.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <>
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-4 relative overflow-hidden">
-          {/* Background Animated Elements */}
-          <div className="absolute inset-0 overflow-hidden">
-            <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-3xl animate-pulse"></div>
-            <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
-          </div>
-          
-          <div className="max-w-lg w-full relative z-10">
-            <div className="text-center mb-12">
-              <div className="w-24 h-24 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl transform hover:scale-110 transition-transform duration-300">
-                <Icons.Package />
-              </div>
-              <h1 className="text-5xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent mb-4">
-                AssetManager Pro
-              </h1>
-              <p className="text-gray-700 text-xl font-medium mb-2">Sistema Inteligente de Controle de Ativos</p>
-            </div>
-
-            <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 p-8 text-white">
-                <h2 className="text-3xl font-bold text-center mb-4">🚀 Bem-vindo!</h2>
-                <p className="text-center text-blue-100 font-medium">
-                  Gerencie seus ativos com tecnologia de ponta
-                </p>
-              </div>
-              
-              <div className="p-8">
-                <div className="grid grid-cols-1 gap-4 mb-8">
-                  <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl border border-blue-100">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg">
-                      <Icons.CheckCircle />
-                    </div>
-                    <div>
-                      <p className="font-bold text-blue-900">Gestão Completa de Ativos</p>
-                      <p className="text-sm text-blue-700">Controle total dos seus equipamentos</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl border border-green-100">
-                    <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center shadow-lg">
-                      <Icons.Camera />
-                    </div>
-                    <div>
-                      <p className="font-bold text-green-900">Fotos Inteligentes</p>
-                      <p className="text-sm text-green-700">Capture fotos diretamente no sistema</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl border border-purple-100">
-                    <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg">
-                      <Icons.Building />
-                    </div>
-                    <div>
-                      <p className="font-bold text-purple-900">Andares Pré-Configurados</p>
-                      <p className="text-sm text-purple-700">5º, 11º e 15º andares já cadastrados</p>
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setShowAuthModal(true)}
-                  className="w-full bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white py-5 px-8 rounded-2xl font-bold transition-all shadow-xl hover:shadow-2xl transform hover:scale-105 text-lg"
-                >
-                  🚀 Acessar Sistema
-                </button>
-
-                <div className="mt-8 text-center">
-                  <div className="flex items-center justify-center space-x-2 text-sm">
-                    <Icons.CheckCircle />
-                    <span className="text-green-700 font-bold">Conexão com NeonDB estabelecida</span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-4">
-                    ©1995-2025 Integration Consulting and any of its affiliates. All rights reserved.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
-      </>
-    );
-  }
-
-  // Usuário logado - mostrar sistema completo
-  return <AssetControlSystem />;
-};
-
-const AppWithProvider = () => {
-  return (
-    <AuthProvider>
-      <App />
-    </AuthProvider>
-  );
-};
-
-export default AppWithProvider;
