@@ -26,31 +26,58 @@ const databaseService = {
 
   async testConnection() {
     try {
+      console.log('🔄 Testando conexão com Neon...');
       const sql = await this.getConnection();
-      await sql`SELECT NOW()`;
+      
+      // Teste de conexão com timeout
+      const testQuery = new Promise(async (resolve, reject) => {
+        try {
+          const result = await sql`SELECT NOW() as current_time`;
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        }
+      });
+
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout na conexão (10s)')), 10000);
+      });
+
+      const result = await Promise.race([testQuery, timeoutPromise]);
+      console.log('✅ Conexão Neon estabelecida:', result[0].current_time);
       return true;
     } catch (error) {
-      console.error('Erro conexão:', error);
+      console.error('❌ Falha na conexão Neon:', error.message);
       return false;
     }
   },
 
   async initializeDatabase() {
     try {
+      console.log('🔄 Inicializando estrutura do banco...');
       const sql = await this.getConnection();
       
+      // Criar tabelas com melhor tratamento de erros
+      console.log('📋 Criando tabela teams...');
       await sql`CREATE TABLE IF NOT EXISTS teams (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
       
-      await sql`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, name VARCHAR(255) NOT NULL, password_hash VARCHAR(255) NOT NULL, company VARCHAR(255), photo TEXT, team_id INTEGER REFERENCES teams(id), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
+      console.log('👤 Criando tabela users...');
+      await sql`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, name VARCHAR(255) NOT NULL, password_hash VARCHAR(255), company VARCHAR(255), photo TEXT, team_id INTEGER REFERENCES teams(id), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
       
+      console.log('🏢 Criando tabela floors...');
       await sql`CREATE TABLE IF NOT EXISTS floors (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
       
+      console.log('🚪 Criando tabela rooms...');
       await sql`CREATE TABLE IF NOT EXISTS rooms (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, floor_id INTEGER REFERENCES floors(id) ON DELETE CASCADE, team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
       
+      console.log('📦 Criando tabela assets...');
       await sql`CREATE TABLE IF NOT EXISTS assets (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, code VARCHAR(100) NOT NULL, category VARCHAR(100), description TEXT, value DECIMAL(12,2), status VARCHAR(50) DEFAULT 'Ativo', floor_id INTEGER REFERENCES floors(id), room_id INTEGER REFERENCES rooms(id), photo TEXT, supplier VARCHAR(255), serial_number VARCHAR(255), team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(code, team_id))`;
 
+      // Verificar e criar times padrão
+      console.log('🏢 Verificando times padrão...');
       const existingTeams = await sql`SELECT COUNT(*) as count FROM teams`;
       if (parseInt(existingTeams[0].count) === 0) {
+        console.log('➕ Criando times padrão...');
         const defaultTeams = [
           { name: 'TI', description: 'Tecnologia da Informação' },
           { name: 'Facilities', description: 'Facilities e Infraestrutura' },
@@ -58,12 +85,22 @@ const databaseService = {
         ];
         for (const team of defaultTeams) {
           await sql`INSERT INTO teams (name, description) VALUES (${team.name}, ${team.description})`;
+          console.log(`✅ Time "${team.name}" criado`);
         }
       }
+
+      // Criar índices para performance
+      console.log('📊 Criando índices...');
+      await sql`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_users_team_id ON users(team_id)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_assets_team_id ON assets(team_id)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_assets_code_team ON assets(code, team_id)`;
+
+      console.log('✅ Banco inicializado com sucesso!');
       return true;
     } catch (error) {
-      console.error('Erro inicialização:', error);
-      return false;
+      console.error('❌ Erro na inicialização:', error);
+      throw error;
     }
   },
 
@@ -74,6 +111,7 @@ const databaseService = {
         const result = await sql`SELECT * FROM teams ORDER BY name`;
         return { success: true, data: result };
       } catch (error) {
+        console.error('Erro teams.getAll:', error);
         return { success: false, error: error.message };
       }
     }
@@ -87,6 +125,7 @@ const databaseService = {
         const result = await sql`INSERT INTO users (email, name, password_hash, company, photo, team_id) VALUES (${userData.email}, ${userData.name}, ${passwordHash}, ${userData.company || null}, ${userData.photo || null}, ${userData.team_id || null}) RETURNING id, email, name, company, photo, team_id, created_at, updated_at`;
         return { success: true, data: result[0] };
       } catch (error) {
+        console.error('Erro users.create:', error);
         return { success: false, error: error.message.includes('unique') ? 'E-mail já em uso' : error.message };
       }
     },
@@ -98,13 +137,16 @@ const databaseService = {
         if (result.length === 0) return { success: false, error: 'E-mail não encontrado' };
         
         const user = result[0];
-        const isValid = await CryptoUtils.verifyPassword(password, user.password_hash);
-        if (!isValid) return { success: false, error: 'Senha incorreta' };
+        if (user.password_hash) {
+          const isValid = await CryptoUtils.verifyPassword(password, user.password_hash);
+          if (!isValid) return { success: false, error: 'Senha incorreta' };
+        }
         
         const { password_hash, ...userWithoutPassword } = user;
         return { success: true, data: userWithoutPassword };
       } catch (error) {
-        return { success: false, error: 'Erro interno' };
+        console.error('Erro users.authenticate:', error);
+        return { success: false, error: 'Erro na autenticação' };
       }
     },
 
@@ -114,6 +156,7 @@ const databaseService = {
         const result = await sql`SELECT u.*, t.name as team_name FROM users u LEFT JOIN teams t ON u.team_id = t.id WHERE u.email = ${email} LIMIT 1`;
         return { success: true, data: result[0] || null };
       } catch (error) {
+        console.error('Erro users.findByEmail:', error);
         return { success: false, error: error.message };
       }
     }
@@ -130,6 +173,7 @@ const databaseService = {
         }
         return { success: true, data: floors };
       } catch (error) {
+        console.error('Erro floors.getAll:', error);
         return { success: false, error: error.message };
       }
     },
@@ -140,6 +184,7 @@ const databaseService = {
         const result = await sql`INSERT INTO floors (name, description, team_id) VALUES (${floorData.name}, ${floorData.description || null}, ${teamId}) RETURNING *`;
         return { success: true, data: result[0] };
       } catch (error) {
+        console.error('Erro floors.create:', error);
         return { success: false, error: error.message };
       }
     }
@@ -152,6 +197,7 @@ const databaseService = {
         const result = await sql`INSERT INTO rooms (name, description, floor_id, team_id) VALUES (${roomData.name}, ${roomData.description || null}, ${roomData.floor_id}, ${teamId}) RETURNING *`;
         return { success: true, data: result[0] };
       } catch (error) {
+        console.error('Erro rooms.create:', error);
         return { success: false, error: error.message };
       }
     }
@@ -164,6 +210,7 @@ const databaseService = {
         const result = await sql`SELECT * FROM assets WHERE team_id = ${teamId} ORDER BY created_at DESC`;
         return { success: true, data: result };
       } catch (error) {
+        console.error('Erro assets.getAll:', error);
         return { success: false, error: error.message };
       }
     },
@@ -174,6 +221,7 @@ const databaseService = {
         const result = await sql`INSERT INTO assets (name, code, category, description, value, status, floor_id, room_id, photo, supplier, serial_number, team_id) VALUES (${assetData.name}, ${assetData.code}, ${assetData.category || null}, ${assetData.description || null}, ${assetData.value || null}, ${assetData.status}, ${assetData.floor_id}, ${assetData.room_id || null}, ${assetData.photo || null}, ${assetData.supplier || null}, ${assetData.serial_number || null}, ${teamId}) RETURNING *`;
         return { success: true, data: result[0] };
       } catch (error) {
+        console.error('Erro assets.create:', error);
         return { success: false, error: error.message };
       }
     },
@@ -199,6 +247,7 @@ const databaseService = {
         const result = await sql`UPDATE assets SET name = ${updates.name}, code = ${updates.code}, category = ${updates.category || null}, description = ${updates.description || null}, value = ${updates.value || null}, status = ${updates.status}, floor_id = ${updates.floor_id}, room_id = ${updates.room_id || null}, photo = ${updates.photo || null}, supplier = ${updates.supplier || null}, serial_number = ${updates.serial_number || null}, updated_at = CURRENT_TIMESTAMP WHERE id = ${id} AND team_id = ${teamId} RETURNING *`;
         return { success: true, data: result[0] };
       } catch (error) {
+        console.error('Erro assets.update:', error);
         return { success: false, error: error.message };
       }
     },
@@ -209,6 +258,7 @@ const databaseService = {
         await sql`DELETE FROM assets WHERE id = ${id} AND team_id = ${teamId}`;
         return { success: true };
       } catch (error) {
+        console.error('Erro assets.delete:', error);
         return { success: false, error: error.message };
       }
     }
@@ -492,6 +542,7 @@ const ImportResultModal = ({ isOpen, onClose, result }) => {
   );
 };
 
+// AuthProvider CORRIGIDO
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -500,89 +551,144 @@ const AuthProvider = ({ children }) => {
 
   const createDefaultFloors = async (teamId) => {
     if (!teamId) return;
-    const existingFloors = await databaseService.floors.getAll(teamId);
-    if (!existingFloors.success || existingFloors.data.length > 0) return;
+    
+    try {
+      const existingFloors = await databaseService.floors.getAll(teamId);
+      if (!existingFloors.success || existingFloors.data.length > 0) return;
 
-    const defaultFloors = [
-      { name: '5º Andar', description: 'Administrativo' },
-      { name: '11º Andar', description: 'Tecnologia' },
-      { name: '15º Andar', description: 'Diretoria' }
-    ];
+      console.log('🏢 Criando andares padrão para o time...');
+      const defaultFloors = [
+        { name: '5º Andar', description: 'Administrativo' },
+        { name: '11º Andar', description: 'Tecnologia' },
+        { name: '15º Andar', description: 'Diretoria' }
+      ];
 
-    for (const floorData of defaultFloors) {
-      const result = await databaseService.floors.create(floorData, teamId);
-      if (result.success) {
-        const rooms = floorData.name.includes('5') ? 
-          [{ name: 'Financeiro' }, { name: 'RH' }] :
-          floorData.name.includes('11') ? 
-          [{ name: 'Desenvolvimento' }, { name: 'Testes' }] :
-          [{ name: 'Diretoria' }, { name: 'Executiva' }];
-        
-        for (const roomData of rooms) {
-          await databaseService.rooms.create({ ...roomData, floor_id: result.data.id }, teamId);
+      for (const floorData of defaultFloors) {
+        const result = await databaseService.floors.create(floorData, teamId);
+        if (result.success) {
+          const rooms = floorData.name.includes('5') ? 
+            [{ name: 'Financeiro' }, { name: 'RH' }] :
+            floorData.name.includes('11') ? 
+            [{ name: 'Desenvolvimento' }, { name: 'Testes' }] :
+            [{ name: 'Diretoria' }, { name: 'Executiva' }];
+          
+          for (const roomData of rooms) {
+            await databaseService.rooms.create({ ...roomData, floor_id: result.data.id }, teamId);
+          }
+          console.log(`✅ Andar "${floorData.name}" criado com salas`);
         }
       }
+    } catch (error) {
+      console.error('Erro ao criar andares padrão:', error);
     }
   };
 
   useEffect(() => {
     const init = async () => {
       try {
-        const connected = await databaseService.testConnection();
-        if (!connected) {
-          setConnectionError('Falha na conexão');
+        console.log('🔄 Inicializando sistema de ativos...');
+        
+        // Verificar se a variável de ambiente existe
+        if (!import.meta.env.VITE_DATABASE_URL) {
+          setConnectionError('❌ VITE_DATABASE_URL não configurada. Configure no Netlify em Environment Variables.');
           setLoading(false);
           return;
         }
 
+        console.log('🔗 Testando conexão com Neon Database...');
+        const connected = await databaseService.testConnection();
+        
+        if (!connected) {
+          setConnectionError('❌ Falha na conexão com Neon Database. Verifique se a connection string está correta e se o projeto está ativo.');
+          setLoading(false);
+          return;
+        }
+
+        console.log('📋 Inicializando estrutura do banco de dados...');
         await databaseService.initializeDatabase();
         setDbReady(true);
+        console.log('✅ Banco de dados pronto!');
 
+        // Verificar usuário salvo localmente
         const savedUser = localStorage.getItem('asset_manager_user');
         if (savedUser) {
-          const userData = JSON.parse(savedUser);
-          const userCheck = await databaseService.users.findByEmail(userData.email);
-          if (userCheck.success && userCheck.data) {
-            setUser(userCheck.data);
-            await createDefaultFloors(userCheck.data.team_id);
-          } else {
+          try {
+            const userData = JSON.parse(savedUser);
+            console.log('🔍 Verificando usuário salvo:', userData.email);
+            
+            const userCheck = await databaseService.users.findByEmail(userData.email);
+            
+            if (userCheck.success && userCheck.data) {
+              setUser(userCheck.data);
+              await createDefaultFloors(userCheck.data.team_id);
+              console.log('✅ Usuário restaurado:', userCheck.data.name);
+            } else {
+              localStorage.removeItem('asset_manager_user');
+              console.log('🔄 Usuário salvo não encontrado no banco, removido do localStorage');
+            }
+          } catch (error) {
             localStorage.removeItem('asset_manager_user');
+            console.log('🔄 Dados de usuário corrompidos, removidos do localStorage');
           }
         }
+
+        console.log('✅ Sistema inicializado com sucesso!');
       } catch (error) {
-        setConnectionError('Erro ao conectar');
+        console.error('❌ Erro crítico na inicialização:', error);
+        setConnectionError(`Erro na inicialização: ${error.message}`);
       } finally {
         setLoading(false);
       }
     };
+
     init();
   }, []);
 
   const signUp = async (email, password, name, company = '', photo = null, team_id = null) => {
     try {
-      const result = await databaseService.users.create({ email, password, name, company, photo, team_id });
+      console.log('📝 Criando novo usuário:', { email, name, company, team_id });
+      const result = await databaseService.users.create({ 
+        email, 
+        password, 
+        name, 
+        company, 
+        photo, 
+        team_id: team_id || null 
+      });
+      
       if (result.success) {
         setUser(result.data);
         localStorage.setItem('asset_manager_user', JSON.stringify(result.data));
         await createDefaultFloors(result.data.team_id);
+        console.log('✅ Usuário criado e logado com sucesso:', result.data.name);
+        return result;
+      } else {
+        console.error('❌ Erro ao criar usuário:', result.error);
         return result;
       }
-      return result;
     } catch (error) {
+      console.error('❌ Erro crítico no signUp:', error);
       return { success: false, error: error.message };
     }
   };
 
   const signIn = async (email, password) => {
     try {
+      console.log('🔐 Tentando fazer login:', email);
       const result = await databaseService.users.authenticate(email, password);
+      
       if (result.success) {
         setUser(result.data);
         localStorage.setItem('asset_manager_user', JSON.stringify(result.data));
         await createDefaultFloors(result.data.team_id);
+        console.log('✅ Login realizado com sucesso:', result.data.name);
+      } else {
+        console.error('❌ Erro no login:', result.error);
       }
+      
       return result;
     } catch (error) {
+      console.error('❌ Erro crítico no signIn:', error);
       return { success: false, error: error.message };
     }
   };
@@ -590,10 +696,19 @@ const AuthProvider = ({ children }) => {
   const signOut = () => {
     setUser(null);
     localStorage.removeItem('asset_manager_user');
+    console.log('👋 Logout realizado');
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, dbReady, connectionError, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      dbReady, 
+      connectionError, 
+      signUp, 
+      signIn, 
+      signOut 
+    }}>
       {children}
     </AuthContext.Provider>
   );
@@ -714,22 +829,41 @@ const App = () => {
 
   useEffect(() => {
     if (user?.team_id) {
+      console.log('👤 Carregando dados para o usuário:', user.name);
       loadAssets();
       loadFloors();
     }
   }, [user]);
 
   const loadAssets = async () => {
-    const result = await databaseService.assets.getAll(user.team_id);
-    if (result.success) {
-      setAssets(result.data);
-      setFilteredAssets(result.data);
+    try {
+      console.log('📦 Carregando ativos...');
+      const result = await databaseService.assets.getAll(user.team_id);
+      if (result.success) {
+        setAssets(result.data);
+        setFilteredAssets(result.data);
+        console.log(`✅ ${result.data.length} ativos carregados`);
+      } else {
+        console.error('❌ Erro ao carregar ativos:', result.error);
+      }
+    } catch (error) {
+      console.error('❌ Erro crítico ao carregar ativos:', error);
     }
   };
 
   const loadFloors = async () => {
-    const result = await databaseService.floors.getAll(user.team_id);
-    if (result.success) setFloors(result.data);
+    try {
+      console.log('🏢 Carregando andares...');
+      const result = await databaseService.floors.getAll(user.team_id);
+      if (result.success) {
+        setFloors(result.data);
+        console.log(`✅ ${result.data.length} andares carregados`);
+      } else {
+        console.error('❌ Erro ao carregar andares:', result.error);
+      }
+    } catch (error) {
+      console.error('❌ Erro crítico ao carregar andares:', error);
+    }
   };
 
   useEffect(() => {
@@ -741,32 +875,47 @@ const App = () => {
   }, [assets, searchTerm, selectedFloor, selectedCategory]);
 
   const handleExcelImport = async (assetsData) => {
-    const result = await databaseService.assets.createBatch(assetsData, user.team_id);
-    if (result.success) {
-      setImportResult(result.data);
-      setShowImportResult(true);
-      await loadAssets();
+    try {
+      console.log(`📊 Importando ${assetsData.length} ativos do Excel...`);
+      const result = await databaseService.assets.createBatch(assetsData, user.team_id);
+      if (result.success) {
+        setImportResult(result.data);
+        setShowImportResult(true);
+        await loadAssets();
+        console.log(`✅ Importação concluída: ${result.data.successCount} sucessos, ${result.data.errorCount} erros`);
+      }
+    } catch (error) {
+      console.error('❌ Erro na importação Excel:', error);
+      alert('Erro na importação: ' + error.message);
     }
   };
 
   const handleSaveAsset = async () => {
     if (!assetForm.name || !assetForm.code || !assetForm.floor_id) {
-      alert('Nome, código e andar são obrigatórios');
+      alert('❌ Nome, código e andar são obrigatórios');
       return;
     }
 
-    const assetData = { ...assetForm, value: assetForm.value ? parseFloat(assetForm.value) : null };
-    const result = editingAsset ? 
-      await databaseService.assets.update(editingAsset.id, assetData, user.team_id) :
-      await databaseService.assets.create(assetData, user.team_id);
+    try {
+      console.log('💾 Salvando ativo:', assetForm.name);
+      const assetData = { ...assetForm, value: assetForm.value ? parseFloat(assetForm.value) : null };
+      const result = editingAsset ? 
+        await databaseService.assets.update(editingAsset.id, assetData, user.team_id) :
+        await databaseService.assets.create(assetData, user.team_id);
 
-    if (result.success) {
-      setShowAssetForm(false);
-      setEditingAsset(null);
-      setAssetForm({ name: '', code: '', category: '', description: '', value: '', status: 'Ativo', floor_id: '', room_id: '', photo: '', supplier: '', serial_number: '' });
-      await loadAssets();
-    } else {
-      alert('Erro: ' + result.error);
+      if (result.success) {
+        setShowAssetForm(false);
+        setEditingAsset(null);
+        setAssetForm({ name: '', code: '', category: '', description: '', value: '', status: 'Ativo', floor_id: '', room_id: '', photo: '', supplier: '', serial_number: '' });
+        await loadAssets();
+        console.log(`✅ Ativo ${editingAsset ? 'atualizado' : 'criado'} com sucesso`);
+      } else {
+        console.error('❌ Erro ao salvar ativo:', result.error);
+        alert('❌ Erro: ' + result.error);
+      }
+    } catch (error) {
+      console.error('❌ Erro crítico ao salvar ativo:', error);
+      alert('❌ Erro crítico: ' + error.message);
     }
   };
 
@@ -871,7 +1020,7 @@ const App = () => {
                     <button onClick={() => { setEditingAsset(asset); setAssetForm({ name: asset.name, code: asset.code, category: asset.category || '', description: asset.description || '', value: asset.value || '', status: asset.status, floor_id: asset.floor_id, room_id: asset.room_id || '', photo: asset.photo || '', supplier: asset.supplier || '', serial_number: asset.serial_number || '' }); setShowAssetForm(true); }} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-2xl flex items-center justify-center space-x-2 font-bold">
                       <Icons.Edit /><span>Editar</span>
                     </button>
-                    <button onClick={async () => { if (confirm('Excluir ativo?')) { await databaseService.assets.delete(asset.id, user.team_id); loadAssets(); } }} className="bg-red-500 hover:bg-red-600 text-white px-4 py-3 rounded-2xl">
+                    <button onClick={async () => { if (confirm('Excluir ativo?')) { const result = await databaseService.assets.delete(asset.id, user.team_id); if (result.success) { await loadAssets(); console.log('✅ Ativo excluído'); } else { alert('Erro ao excluir: ' + result.error); } } }} className="bg-red-500 hover:bg-red-600 text-white px-4 py-3 rounded-2xl">
                       <Icons.Trash2 />
                     </button>
                   </div>
@@ -1015,7 +1164,8 @@ const MainApp = () => {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-20 h-20 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-6"></div>
-          <h2 className="text-2xl font-bold text-gray-800">🚀 Carregando...</h2>
+          <h2 className="text-2xl font-bold text-gray-800">🚀 Carregando Sistema...</h2>
+          <p className="text-gray-600 mt-2">Conectando com o banco de dados...</p>
         </div>
       </div>
     );
@@ -1024,10 +1174,18 @@ const MainApp = () => {
   if (connectionError) {
     return (
       <div className="min-h-screen bg-red-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl text-center">
+        <div className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Icons.AlertCircle />
+          </div>
           <h2 className="text-2xl font-bold text-red-800 mb-4">❌ Erro de Conexão</h2>
-          <p className="text-red-600 mb-6">{connectionError}</p>
-          <button onClick={() => window.location.reload()} className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold">🔄 Tentar Novamente</button>
+          <p className="text-red-600 mb-6 text-sm leading-relaxed">{connectionError}</p>
+          <div className="space-y-3">
+            <button onClick={() => window.location.reload()} className="w-full bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold">🔄 Tentar Novamente</button>
+            <p className="text-xs text-gray-500">
+              Se o problema persistir, verifique a configuração da VITE_DATABASE_URL no Netlify
+            </p>
+          </div>
         </div>
       </div>
     );
