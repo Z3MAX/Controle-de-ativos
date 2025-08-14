@@ -1,56 +1,75 @@
-// Configuração simplificada para evitar problemas de build
+// src/lib/db.js - Versão Corrigida
 let sql = null;
 
-// Função para inicializar a conexão apenas quando necessário
 const initConnection = async () => {
   if (sql) return sql;
   
   try {
-    if (typeof window !== 'undefined' && import.meta.env.VITE_DATABASE_URL) {
+    const dbUrl = import.meta.env.VITE_DATABASE_URL;
+    
+    if (!dbUrl) {
+      throw new Error('VITE_DATABASE_URL não configurada');
+    }
+
+    console.log('🔄 Iniciando conexão Neon...');
+    
+    if (typeof window !== 'undefined') {
       const { neon } = await import('@neondatabase/serverless');
-      sql = neon(import.meta.env.VITE_DATABASE_URL);
+      sql = neon(dbUrl);
+      
+      // Teste de conexão com timeout
+      const testQuery = new Promise(async (resolve, reject) => {
+        try {
+          const result = await sql`SELECT 1 as test`;
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        }
+      });
+
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout na conexão')), 10000);
+      });
+
+      await Promise.race([testQuery, timeoutPromise]);
+      console.log('✅ Conexão Neon estabelecida com sucesso');
       return sql;
     }
-    return null;
+    
+    throw new Error('Ambiente não suportado');
   } catch (error) {
-    console.error('Erro ao inicializar conexão:', error);
-    return null;
+    console.error('❌ Erro ao conectar com Neon:', error);
+    sql = null;
+    throw error;
   }
 };
 
-// Exportar a conexão para uso direto (compatibilidade)
-export { sql };
-
-// Função para testar conexão
 export async function testConnection() {
-  try {
-    const connection = await initConnection();
-    if (!connection) {
-      console.log('❌ Variável VITE_DATABASE_URL não configurada');
-      return false;
-    }
-
-    const result = await connection`SELECT NOW() as current_time`;
-    console.log('✅ Conexão com NeonDB estabelecida:', result[0].current_time);
-    return true;
-  } catch (error) {
-    console.error('❌ Erro ao conectar com NeonDB:', error);
-    return false;
-  }
-}
-
-// Função para obter conexão
-export async function getConnection() {
-  return await initConnection();
-}
-
-  // Função para inicializar o banco (criar tabelas se não existirem)
-export async function initializeDatabase() {
   try {
     const connection = await initConnection();
     if (!connection) return false;
 
-    // Criar tabela de times
+    const result = await connection`SELECT NOW() as current_time`;
+    console.log('✅ Teste de conexão bem-sucedido:', result[0].current_time);
+    return true;
+  } catch (error) {
+    console.error('❌ Falha no teste de conexão:', error.message);
+    return false;
+  }
+}
+
+export async function getConnection() {
+  return await initConnection();
+}
+
+export async function initializeDatabase() {
+  try {
+    console.log('🔄 Inicializando banco de dados...');
+    const connection = await initConnection();
+    if (!connection) throw new Error('Conexão não disponível');
+
+    // Criar tabelas com IF NOT EXISTS para evitar erros
+    console.log('📋 Criando tabela teams...');
     await connection`
       CREATE TABLE IF NOT EXISTS teams (
         id SERIAL PRIMARY KEY,
@@ -61,28 +80,22 @@ export async function initializeDatabase() {
       )
     `;
 
-    // Criar tabela de usuários
+    console.log('👤 Criando tabela users...');
     await connection`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
         name VARCHAR(255) NOT NULL,
+        password_hash VARCHAR(255),
         company VARCHAR(255),
+        photo TEXT,
         team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `;
 
-    // Adicionar coluna team_id se não existir (migração)
-    try {
-      await connection`ALTER TABLE users ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL`;
-      console.log('✅ Coluna team_id adicionada/verificada na tabela users');
-    } catch (error) {
-      console.log('ℹ️ Coluna team_id já existe ou erro na migração:', error);
-    }
-
-    // Criar tabela de andares
+    console.log('🏢 Criando tabela floors...');
     await connection`
       CREATE TABLE IF NOT EXISTS floors (
         id SERIAL PRIMARY KEY,
@@ -94,15 +107,7 @@ export async function initializeDatabase() {
       )
     `;
 
-    // Adicionar coluna team_id e remover user_id dos floors (migração)
-    try {
-      await connection`ALTER TABLE floors ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE`;
-      console.log('✅ Coluna team_id adicionada/verificada na tabela floors');
-    } catch (error) {
-      console.log('ℹ️ Coluna team_id já existe ou erro na migração:', error);
-    }
-
-    // Criar tabela de salas
+    console.log('🚪 Criando tabela rooms...');
     await connection`
       CREATE TABLE IF NOT EXISTS rooms (
         id SERIAL PRIMARY KEY,
@@ -115,15 +120,7 @@ export async function initializeDatabase() {
       )
     `;
 
-    // Adicionar coluna team_id e remover user_id das rooms (migração)
-    try {
-      await connection`ALTER TABLE rooms ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE`;
-      console.log('✅ Coluna team_id adicionada/verificada na tabela rooms');
-    } catch (error) {
-      console.log('ℹ️ Coluna team_id já existe ou erro na migração:', error);
-    }
-
-    // Criar tabela de ativos
+    console.log('📦 Criando tabela assets...');
     await connection`
       CREATE TABLE IF NOT EXISTS assets (
         id SERIAL PRIMARY KEY,
@@ -145,24 +142,16 @@ export async function initializeDatabase() {
       )
     `;
 
-    // Adicionar coluna team_id e remover user_id dos assets (migração)
-    try {
-      await connection`ALTER TABLE assets ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE`;
-      console.log('✅ Coluna team_id adicionada/verificada na tabela assets');
-    } catch (error) {
-      console.log('ℹ️ Coluna team_id já existe ou erro na migração:', error);
-    }
-
-    // Criar times padrão se não existirem
+    // Verificar e criar times padrão
+    console.log('🏢 Verificando times padrão...');
     const existingTeams = await connection`SELECT COUNT(*) as count FROM teams`;
+    
     if (parseInt(existingTeams[0].count) === 0) {
-      console.log('🏢 Criando times padrão...');
-      
+      console.log('➕ Criando times padrão...');
       const defaultTeams = [
-        { name: 'TI', description: 'Equipe de Tecnologia da Informação' },
-        { name: 'Facilities', description: 'Equipe de Facilities e Infraestrutura' },
-        { name: 'Administrativo', description: 'Equipe Administrativa e Financeira' },
-        { name: 'Recursos Humanos', description: 'Equipe de Recursos Humanos' }
+        { name: 'TI', description: 'Tecnologia da Informação' },
+        { name: 'Facilities', description: 'Facilities e Infraestrutura' },
+        { name: 'Administrativo', description: 'Administrativo e Financeiro' }
       ];
 
       for (const team of defaultTeams) {
@@ -174,19 +163,20 @@ export async function initializeDatabase() {
       }
     }
 
-    // Criar índices para melhor performance
+    // Criar índices para performance
+    console.log('📊 Criando índices...');
+    await connection`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`;
     await connection`CREATE INDEX IF NOT EXISTS idx_users_team_id ON users(team_id)`;
     await connection`CREATE INDEX IF NOT EXISTS idx_assets_team_id ON assets(team_id)`;
-    await connection`CREATE INDEX IF NOT EXISTS idx_assets_floor_id ON assets(floor_id)`;
-    await connection`CREATE INDEX IF NOT EXISTS idx_assets_room_id ON assets(room_id)`;
-    await connection`CREATE INDEX IF NOT EXISTS idx_rooms_floor_id ON rooms(floor_id)`;
+    await connection`CREATE INDEX IF NOT EXISTS idx_assets_code_team ON assets(code, team_id)`;
     await connection`CREATE INDEX IF NOT EXISTS idx_floors_team_id ON floors(team_id)`;
+    await connection`CREATE INDEX IF NOT EXISTS idx_rooms_floor_id ON rooms(floor_id)`;
     await connection`CREATE INDEX IF NOT EXISTS idx_rooms_team_id ON rooms(team_id)`;
 
-    console.log('✅ Banco de dados inicializado com sistema de times');
+    console.log('✅ Banco de dados inicializado com sucesso!');
     return true;
   } catch (error) {
-    console.error('❌ Erro ao inicializar banco de dados:', error);
-    return false;
+    console.error('❌ Erro na inicialização do banco:', error);
+    throw error;
   }
 }
