@@ -1,5 +1,6 @@
 import React, { useState, useEffect, createContext, useContext, useRef } from 'react';
 import * as XLSX from 'xlsx';
+import { neon } from '@neondatabase/serverless';
 
 const AuthContext = createContext({});
 const useAuth = () => useContext(AuthContext);
@@ -20,7 +21,6 @@ const CryptoUtils = {
 const databaseService = {
   async getConnection() {
     if (!import.meta.env.VITE_DATABASE_URL) throw new Error('VITE_DATABASE_URL não configurada');
-    const { neon } = await import('@neondatabase/serverless');
     return neon(import.meta.env.VITE_DATABASE_URL);
   },
 
