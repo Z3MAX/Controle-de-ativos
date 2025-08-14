@@ -821,6 +821,199 @@ const AuthProvider = ({ children }) => {
   );
 };
 
+// =================== PHOTO HANDLER ===================
+const usePhotoHandler = (onPhotoCapture) => {
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [stream, setStream] = useState(null);
+  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
+
+  const startCamera = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      setStream(mediaStream);
+      setIsCapturing(true);
+      setShowPhotoOptions(false);
+      
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+        }
+      }, 100);
+    } catch (error) {
+      console.error('Erro ao acessar a câmera:', error);
+      alert('Não foi possível acessar a câmera. Tente fazer upload de uma imagem.');
+    }
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0);
+      
+      const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+      onPhotoCapture(dataURL);
+      stopCamera();
+    }
+  };
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setIsCapturing(false);
+  };
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        onPhotoCapture(e.target.result);
+        setShowPhotoOptions(false);
+      };
+      reader.readAsDataURL(file);
+    }
+    // Reset input
+    event.target.value = '';
+  };
+
+  const openPhotoOptions = () => {
+    setShowPhotoOptions(true);
+  };
+
+  const closePhotoOptions = () => {
+    setShowPhotoOptions(false);
+    stopCamera();
+  };
+
+  return {
+    videoRef,
+    canvasRef,
+    fileInputRef,
+    isCapturing,
+    showPhotoOptions,
+    startCamera,
+    capturePhoto,
+    stopCamera,
+    handleFileUpload,
+    openPhotoOptions,
+    closePhotoOptions
+  };
+};
+
+// =================== PHOTO MODAL COMPONENT ===================
+const PhotoModal = ({ 
+  isOpen, 
+  onClose, 
+  videoRef, 
+  canvasRef, 
+  fileInputRef, 
+  isCapturing, 
+  onStartCamera, 
+  onCapturePhoto, 
+  onFileUpload 
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl flex items-center justify-center p-4 z-[60]">
+      <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl border border-white/20">
+        <div className="p-8">
+          <div className="flex justify-between items-center mb-8">
+            <h3 className="text-3xl font-black text-slate-900">Adicionar Foto</h3>
+            <button
+              onClick={onClose}
+              className="p-3 hover:bg-slate-100 rounded-2xl transition-all"
+            >
+              <Icons.X />
+            </button>
+          </div>
+
+          {isCapturing ? (
+            <div className="space-y-6">
+              <div className="relative bg-black rounded-2xl overflow-hidden">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full h-80 object-cover"
+                />
+                <canvas ref={canvasRef} className="hidden" />
+              </div>
+              
+              <div className="flex gap-4">
+                <button
+                  onClick={onCapturePhoto}
+                  className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-6 py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all"
+                >
+                  <Icons.Camera />
+                  Capturar Foto
+                </button>
+                <button
+                  onClick={onClose}
+                  className="px-6 py-4 border-2 border-slate-300 text-slate-700 rounded-2xl hover:bg-slate-100 transition-all font-bold"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <button
+                  onClick={onStartCamera}
+                  className="bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white p-8 rounded-2xl font-bold text-lg flex flex-col items-center gap-4 shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all"
+                >
+                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
+                    <Icons.Camera />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xl font-black mb-2">Tirar Foto</p>
+                    <p className="text-sm opacity-90">Use a câmera do dispositivo</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white p-8 rounded-2xl font-bold text-lg flex flex-col items-center gap-4 shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all"
+                >
+                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
+                    <Icons.Upload />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xl font-black mb-2">Escolher Arquivo</p>
+                    <p className="text-sm opacity-90">Selecionar da galeria</p>
+                  </div>
+                </button>
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={onFileUpload}
+                className="hidden"
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // =================== MAIN APP COMPONENT ===================
 const App = () => {
   const { user } = useAuth();
@@ -850,6 +1043,17 @@ const App = () => {
     supplier: '',
     serial_number: ''
   });
+
+  // Photo handling
+  const handlePhotoCapture = (photoDataURL) => {
+    setAssetForm({ ...assetForm, photo: photoDataURL });
+  };
+
+  const removePhoto = () => {
+    setAssetForm({ ...assetForm, photo: '' });
+  };
+
+  const photoHandler = usePhotoHandler(handlePhotoCapture);
 
   const categories = ['Informática', 'Móveis', 'Equipamentos', 'Veículos', 'Eletrônicos', 'Outros'];
   const statuses = ['Ativo', 'Inativo', 'Manutenção', 'Descartado'];
@@ -1654,6 +1858,7 @@ const App = () => {
                         <div className="flex gap-4 mt-6">
                           <button
                             type="button"
+                            onClick={photoHandler.openPhotoOptions}
                             className="flex-1 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-700 hover:to-cyan-700 text-white px-6 py-5 rounded-2xl flex items-center justify-center gap-4 font-bold text-lg transition-all shadow-xl hover:shadow-2xl transform hover:scale-105"
                           >
                             <Icons.Camera />
@@ -1661,7 +1866,7 @@ const App = () => {
                           </button>
                           <button
                             type="button"
-                            onClick={() => setAssetForm({...assetForm, photo: ''})}
+                            onClick={removePhoto}
                             className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white px-6 py-5 rounded-2xl transition-all shadow-xl hover:shadow-2xl transform hover:scale-105"
                           >
                             <Icons.Trash />
@@ -1669,7 +1874,10 @@ const App = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="w-full h-80 border-4 border-dashed border-indigo-300 rounded-3xl flex items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-all bg-gradient-to-br from-indigo-50/50 via-purple-50/50 to-pink-50/50 backdrop-blur-sm transform hover:scale-105">
+                      <div 
+                        onClick={photoHandler.openPhotoOptions}
+                        className="w-full h-80 border-4 border-dashed border-indigo-300 rounded-3xl flex items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-all bg-gradient-to-br from-indigo-50/50 via-purple-50/50 to-pink-50/50 backdrop-blur-sm transform hover:scale-105"
+                      >
                         <div className="text-center p-10">
                           <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl">
                             <Icons.Camera />
@@ -1788,6 +1996,19 @@ const App = () => {
           </div>
         </div>
       )}
+
+      {/* Photo Modal */}
+      <PhotoModal
+        isOpen={photoHandler.showPhotoOptions}
+        onClose={photoHandler.closePhotoOptions}
+        videoRef={photoHandler.videoRef}
+        canvasRef={photoHandler.canvasRef}
+        fileInputRef={photoHandler.fileInputRef}
+        isCapturing={photoHandler.isCapturing}
+        onStartCamera={photoHandler.startCamera}
+        onCapturePhoto={photoHandler.capturePhoto}
+        onFileUpload={photoHandler.handleFileUpload}
+      />
 
       {/* Enhanced Asset Detail Modal */}
       {showAssetDetail && (
