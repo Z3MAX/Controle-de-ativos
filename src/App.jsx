@@ -62,16 +62,56 @@ const databaseService = {
       await sql`CREATE TABLE IF NOT EXISTS teams (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
       
       console.log('👤 Criando tabela users...');
-      await sql`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, name VARCHAR(255) NOT NULL, password_hash VARCHAR(255), company VARCHAR(255), photo TEXT, team_id INTEGER REFERENCES teams(id), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
+      await sql`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, name VARCHAR(255) NOT NULL, password_hash VARCHAR(255), company VARCHAR(255), photo TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
       
       console.log('🏢 Criando tabela floors...');
-      await sql`CREATE TABLE IF NOT EXISTS floors (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
+      await sql`CREATE TABLE IF NOT EXISTS floors (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
       
       console.log('🚪 Criando tabela rooms...');
-      await sql`CREATE TABLE IF NOT EXISTS rooms (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, floor_id INTEGER REFERENCES floors(id) ON DELETE CASCADE, team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
+      await sql`CREATE TABLE IF NOT EXISTS rooms (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, floor_id INTEGER REFERENCES floors(id) ON DELETE CASCADE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
       
       console.log('📦 Criando tabela assets...');
-      await sql`CREATE TABLE IF NOT EXISTS assets (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, code VARCHAR(100) NOT NULL, category VARCHAR(100), description TEXT, value DECIMAL(12,2), status VARCHAR(50) DEFAULT 'Ativo', floor_id INTEGER REFERENCES floors(id), room_id INTEGER REFERENCES rooms(id), photo TEXT, supplier VARCHAR(255), serial_number VARCHAR(255), team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(code, team_id))`;
+      await sql`CREATE TABLE IF NOT EXISTS assets (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, code VARCHAR(100) UNIQUE NOT NULL, category VARCHAR(100), description TEXT, value DECIMAL(12,2), status VARCHAR(50) DEFAULT 'Ativo', floor_id INTEGER REFERENCES floors(id), room_id INTEGER REFERENCES rooms(id), photo TEXT, supplier VARCHAR(255), serial_number VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
+
+      // MIGRAÇÃO: Adicionar colunas team_id se não existirem
+      console.log('🔧 Verificando migrações necessárias...');
+      
+      try {
+        await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id)`;
+        console.log('✅ Coluna team_id adicionada à tabela users');
+      } catch (error) {
+        console.log('ℹ️ Coluna team_id já existe em users ou erro:', error.message);
+      }
+
+      try {
+        await sql`ALTER TABLE floors ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE`;
+        console.log('✅ Coluna team_id adicionada à tabela floors');
+      } catch (error) {
+        console.log('ℹ️ Coluna team_id já existe em floors ou erro:', error.message);
+      }
+
+      try {
+        await sql`ALTER TABLE rooms ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE`;
+        console.log('✅ Coluna team_id adicionada à tabela rooms');
+      } catch (error) {
+        console.log('ℹ️ Coluna team_id já existe em rooms ou erro:', error.message);
+      }
+
+      try {
+        await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE`;
+        console.log('✅ Coluna team_id adicionada à tabela assets');
+      } catch (error) {
+        console.log('ℹ️ Coluna team_id já existe em assets ou erro:', error.message);
+      }
+
+      // Remover constraint UNIQUE antigo se existir e criar novo
+      try {
+        await sql`ALTER TABLE assets DROP CONSTRAINT IF EXISTS assets_code_key`;
+        await sql`ALTER TABLE assets ADD CONSTRAINT assets_code_team_unique UNIQUE(code, team_id)`;
+        console.log('✅ Constraint de código único por time aplicada');
+      } catch (error) {
+        console.log('ℹ️ Constraint já existe ou erro:', error.message);
+      }
 
       // Verificar e criar times padrão
       console.log('🏢 Verificando times padrão...');
@@ -89,12 +129,31 @@ const databaseService = {
         }
       }
 
+      // Atualizar registros existentes sem team_id para o primeiro time
+      try {
+        const firstTeam = await sql`SELECT id FROM teams ORDER BY id LIMIT 1`;
+        if (firstTeam.length > 0) {
+          const teamId = firstTeam[0].id;
+          
+          await sql`UPDATE users SET team_id = ${teamId} WHERE team_id IS NULL`;
+          await sql`UPDATE floors SET team_id = ${teamId} WHERE team_id IS NULL`;
+          await sql`UPDATE rooms SET team_id = ${teamId} WHERE team_id IS NULL`;
+          await sql`UPDATE assets SET team_id = ${teamId} WHERE team_id IS NULL`;
+          
+          console.log(`✅ Registros existentes atribuídos ao time padrão (ID: ${teamId})`);
+        }
+      } catch (error) {
+        console.log('ℹ️ Erro ao atualizar registros existentes:', error.message);
+      }
+
       // Criar índices para performance
       console.log('📊 Criando índices...');
       await sql`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_users_team_id ON users(team_id)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_assets_team_id ON assets(team_id)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_assets_code_team ON assets(code, team_id)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_floors_team_id ON floors(team_id)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_rooms_team_id ON rooms(team_id)`;
 
       console.log('✅ Banco inicializado com sucesso!');
       return true;
