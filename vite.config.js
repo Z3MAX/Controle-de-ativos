@@ -8,19 +8,24 @@ export default defineConfig({
     sourcemap: false,
     rollupOptions: {
       output: {
-        manualChunks: undefined,
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          neon: ['@neondatabase/serverless'],
+          xlsx: ['xlsx']
+        },
       },
     },
     target: 'esnext',
     minify: 'esbuild',
+    chunkSizeWarningLimit: 1000
   },
   server: {
     port: 3000,
     host: true
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'xlsx'],
-    exclude: ['@neondatabase/serverless']
+    include: ['react', 'react-dom', 'xlsx', 'lucide-react'],
+    exclude: []
   },
   define: {
     global: 'globalThis',
