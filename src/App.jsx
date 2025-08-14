@@ -1073,4 +1073,753 @@ const App = () => {
                 <select
                   value={selectedFloor}
                   onChange={(e) => setSelectedFloor(e.target.value)}
-                  className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/80
+                  className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/80 backdrop-blur-sm transition-all"
+                >
+                  <option value="">Todos os andares</option>
+                  {floors.map(f => (
+                    <option key={f.id} value={f.id}>{f.name}</option>
+                  ))}
+                </select>
+                
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/80 backdrop-blur-sm transition-all"
+                >
+                  <option value="">Todas as categorias</option>
+                  {categories.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/80 backdrop-blur-sm transition-all"
+                >
+                  <option value="">Todos os status</option>
+                  {statuses.map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setSelectedFloor('');
+                    setSelectedCategory('');
+                    setSelectedStatus('');
+                  }}
+                  className="px-4 py-3 border-2 border-gray-300 rounded-xl hover:bg-gray-50 font-bold transition-all flex items-center justify-center gap-2"
+                >
+                  <Icons.Filter />
+                  Limpar Filtros
+                </button>
+              </div>
+            </div>
+
+            {/* Assets Grid/List */}
+            {loading ? (
+              <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20">
+                <LoadingSpinner size="lg" text="Carregando ativos..." />
+              </div>
+            ) : (
+              <>
+                {filteredAssets.length === 0 ? (
+                  <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-16 shadow-xl border border-white/20 text-center">
+                    <div className="w-24 h-24 bg-gradient-to-br from-gray-200 to-gray-300 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                      <Icons.Package />
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                      {searchTerm || selectedFloor || selectedCategory || selectedStatus 
+                        ? 'Nenhum ativo encontrado' 
+                        : 'Nenhum ativo cadastrado'
+                      }
+                    </h3>
+                    <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                      {searchTerm || selectedFloor || selectedCategory || selectedStatus
+                        ? 'Tente ajustar os filtros para encontrar outros ativos'
+                        : 'Comece cadastrando seu primeiro ativo no sistema'
+                      }
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                      <button
+                        onClick={() => setShowAssetForm(true)}
+                        className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-4 rounded-2xl font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all"
+                      >
+                        🚀 Cadastrar Primeiro Ativo
+                      </button>
+                      {(searchTerm || selectedFloor || selectedCategory || selectedStatus) && (
+                        <button
+                          onClick={() => {
+                            setSearchTerm('');
+                            setSelectedFloor('');
+                            setSelectedCategory('');
+                            setSelectedStatus('');
+                          }}
+                          className="bg-gray-600 hover:bg-gray-700 text-white px-8 py-4 rounded-2xl font-bold transition-all"
+                        >
+                          🔄 Limpar Filtros
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className={viewMode === 'grid' 
+                    ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" 
+                    : "space-y-4"
+                  }>
+                    {filteredAssets.map(asset => (
+                      viewMode === 'grid' ? (
+                        <AssetCard
+                          key={asset.id}
+                          asset={asset}
+                          onView={setShowAssetDetail}
+                          onEdit={handleEditAsset}
+                          onDelete={handleDeleteAsset}
+                          getFloorName={getFloorName}
+                        />
+                      ) : (
+                        <div key={asset.id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all p-6 border border-gray-100">
+                          <div className="flex items-center gap-6">
+                            <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl overflow-hidden flex-shrink-0">
+                              {asset.photo ? (
+                                <img src={asset.photo} alt={asset.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <Icons.Package />
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex-1">
+                              <div className="flex items-start justify-between mb-2">
+                                <div>
+                                  <h3 className="text-xl font-bold text-gray-900">{asset.name}</h3>
+                                  <p className="text-sm font-mono text-gray-600">{asset.code}</p>
+                                </div>
+                                <StatusBadge status={asset.status} />
+                              </div>
+                              
+                              <div className="flex items-center gap-6 text-sm text-gray-600">
+                                {asset.category && (
+                                  <span className="flex items-center gap-1">
+                                    <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
+                                    {asset.category}
+                                  </span>
+                                )}
+                                <span className="flex items-center gap-1">
+                                  <Icons.MapPin />
+                                  {getFloorName(asset.floor_id)}
+                                </span>
+                                {asset.value && (
+                                  <span className="flex items-center gap-1 text-green-700 font-semibold">
+                                    <Icons.DollarSign />
+                                    R$ {parseFloat(asset.value).toLocaleString('pt-BR')}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => setShowAssetDetail(asset)}
+                                className="bg-gray-100 hover:bg-gray-200 text-gray-700 p-3 rounded-xl transition-colors"
+                              >
+                                <Icons.Eye />
+                              </button>
+                              <button
+                                onClick={() => handleEditAsset(asset)}
+                                className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-xl transition-colors"
+                              >
+                                <Icons.Edit />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteAsset(asset)}
+                                className="bg-red-600 hover:bg-red-700 text-white p-3 rounded-xl transition-colors"
+                              >
+                                <Icons.Trash />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Locations */}
+        {activeTab === 'locations' && (
+          <div className="space-y-8">
+            <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-8 shadow-xl border border-white/20">
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                  <Icons.Building />
+                  Localizações Cadastradas
+                </h2>
+                <button className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-4 rounded-2xl font-bold flex items-center gap-3 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all">
+                  <Icons.Plus />
+                  Novo Andar
+                </button>
+              </div>
+              
+              {floors.length === 0 ? (
+                <div className="text-center py-16">
+                  <div className="w-24 h-24 bg-gradient-to-br from-green-200 to-emerald-300 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                    <Icons.Building />
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-4">Nenhuma localização cadastrada</h3>
+                  <p className="text-gray-600 mb-8">Comece cadastrando os andares e salas da sua empresa</p>
+                  <button className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-8 py-4 rounded-2xl font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all">
+                    🏢 Cadastrar Primeiro Andar
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {floors.map(floor => (
+                    <div key={floor.id} className="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-3xl border border-green-100 hover:shadow-lg transition-all">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h3 className="text-2xl font-bold text-green-900">{floor.name}</h3>
+                          {floor.description && (
+                            <p className="text-green-700 mt-1">{floor.description}</p>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <button className="bg-green-600 hover:bg-green-700 text-white p-2 rounded-xl transition-colors">
+                            <Icons.Edit />
+                          </button>
+                          <button className="bg-red-600 hover:bg-red-700 text-white p-2 rounded-xl transition-colors">
+                            <Icons.Trash />
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {floor.rooms && floor.rooms.length > 0 ? (
+                        <>
+                          <div className="mb-4">
+                            <p className="text-sm text-green-700 font-medium">
+                              {floor.rooms.length} sala{floor.rooms.length !== 1 ? 's' : ''} cadastrada{floor.rooms.length !== 1 ? 's' : ''}
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            {floor.rooms.map(room => (
+                              <div key={room.id} className="bg-white/80 p-4 rounded-2xl border border-green-200 hover:bg-white transition-colors">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <h4 className="font-bold text-green-900">{room.name}</h4>
+                                    {room.description && (
+                                      <p className="text-xs text-green-600 mt-1">{room.description}</p>
+                                    )}
+                                  </div>
+                                  <button className="text-green-600 hover:text-green-700 p-1">
+                                    <Icons.Edit />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-center py-6">
+                          <p className="text-green-600 text-sm mb-3">Nenhuma sala cadastrada</p>
+                          <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors">
+                            + Adicionar Sala
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Asset Form Modal */}
+      {showAssetForm && (
+        <div className="fixed inset-0 bg-gradient-to-br from-slate-900/80 via-purple-900/80 to-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white/95 backdrop-blur-xl rounded-3xl w-full max-w-4xl max-h-[95vh] overflow-y-auto shadow-2xl border border-white/20">
+            <div className="p-8">
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-purple-800 to-gray-900 bg-clip-text text-transparent">
+                    {editingAsset ? '✏️ Editar Ativo' : '➕ Novo Ativo'}
+                  </h3>
+                  <p className="text-gray-600 mt-2">
+                    {editingAsset ? 'Atualize as informações do ativo' : 'Cadastre um novo ativo no sistema'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowAssetForm(false);
+                    setEditingAsset(null);
+                    setAssetForm({
+                      name: '',
+                      code: '',
+                      category: '',
+                      description: '',
+                      value: '',
+                      status: 'Ativo',
+                      floor_id: '',
+                      room_id: '',
+                      photo: '',
+                      supplier: '',
+                      serial_number: ''
+                    });
+                  }}
+                  className="p-3 hover:bg-gray-100 rounded-2xl transition-colors"
+                >
+                  <Icons.X />
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-3">Nome do Ativo *</label>
+                    <input
+                      type="text"
+                      value={assetForm.name}
+                      onChange={(e) => setAssetForm({...assetForm, name: e.target.value})}
+                      className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white/80 backdrop-blur-sm transition-all"
+                      placeholder="Ex: Notebook Dell Inspiron 15"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-3">Código *</label>
+                    <input
+                      type="text"
+                      value={assetForm.code}
+                      onChange={(e) => setAssetForm({...assetForm, code: e.target.value})}
+                      className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white/80 backdrop-blur-sm font-mono transition-all"
+                      placeholder="Ex: NB-001"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-3">Categoria</label>
+                    <select
+                      value={assetForm.category}
+                      onChange={(e) => setAssetForm({...assetForm, category: e.target.value})}
+                      className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white/80 backdrop-blur-sm transition-all"
+                    >
+                      <option value="">Selecione uma categoria</option>
+                      {categories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-3">Andar *</label>
+                    <select
+                      value={assetForm.floor_id}
+                      onChange={(e) => setAssetForm({...assetForm, floor_id: e.target.value, room_id: ''})}
+                      className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white/80 backdrop-blur-sm transition-all"
+                    >
+                      <option value="">Selecione um andar</option>
+                      {floors.map(floor => (
+                        <option key={floor.id} value={floor.id}>{floor.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-3">Sala</label>
+                    <select
+                      value={assetForm.room_id}
+                      onChange={(e) => setAssetForm({...assetForm, room_id: e.target.value})}
+                      className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white/80 backdrop-blur-sm transition-all"
+                      disabled={!assetForm.floor_id}
+                    >
+                      <option value="">Selecione uma sala</option>
+                      {getRoomsForFloor(assetForm.floor_id).map(room => (
+                        <option key={room.id} value={room.id}>{room.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-4">📷 Foto do Ativo</label>
+                    {assetForm.photo ? (
+                      <div className="relative">
+                        <div className="w-full h-64 bg-gradient-to-br from-gray-100 to-gray-200 rounded-3xl overflow-hidden border-4 border-white shadow-xl">
+                          <img src={assetForm.photo} alt="Foto do ativo" className="w-full h-full object-cover" />
+                        </div>
+                        <div className="flex gap-3 mt-4">
+                          <button
+                            type="button"
+                            className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white px-4 py-4 rounded-2xl flex items-center justify-center gap-3 font-bold transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+                          >
+                            <Icons.Camera />
+                            Alterar Foto
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAssetForm({...assetForm, photo: ''})}
+                            className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white px-4 py-4 rounded-2xl transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+                          >
+                            <Icons.Trash />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-full h-64 border-4 border-dashed border-purple-300 rounded-3xl flex items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all bg-gradient-to-br from-purple-50/50 via-blue-50/50 to-cyan-50/50 backdrop-blur-sm">
+                        <div className="text-center p-8">
+                          <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <Icons.Camera />
+                          </div>
+                          <p className="text-gray-700 font-bold text-lg mb-2">📷 Clique para adicionar foto</p>
+                          <p className="text-gray-600 mb-4">Tire uma foto ou escolha da galeria</p>
+                          <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 rounded-2xl text-sm font-bold border border-purple-200">
+                            <span>📸 Recomendado</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-3">Valor (R$)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={assetForm.value}
+                      onChange={(e) => setAssetForm({...assetForm, value: e.target.value})}
+                      className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white/80 backdrop-blur-sm transition-all"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-3">Status</label>
+                    <select
+                      value={assetForm.status}
+                      onChange={(e) => setAssetForm({...assetForm, status: e.target.value})}
+                      className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white/80 backdrop-blur-sm transition-all"
+                    >
+                      {statuses.map(status => (
+                        <option key={status} value={status}>{status}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-3">Fornecedor</label>
+                    <input
+                      type="text"
+                      value={assetForm.supplier}
+                      onChange={(e) => setAssetForm({...assetForm, supplier: e.target.value})}
+                      className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white/80 backdrop-blur-sm transition-all"
+                      placeholder="Nome do fornecedor"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-3">Número de Série</label>
+                    <input
+                      type="text"
+                      value={assetForm.serial_number}
+                      onChange={(e) => setAssetForm({...assetForm, serial_number: e.target.value})}
+                      className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white/80 backdrop-blur-sm font-mono transition-all"
+                      placeholder="SN123456"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-8">
+                <label className="block text-sm font-bold text-gray-700 mb-3">Descrição</label>
+                <textarea
+                  value={assetForm.description}
+                  onChange={(e) => setAssetForm({...assetForm, description: e.target.value})}
+                  rows={4}
+                  className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white/80 backdrop-blur-sm resize-none transition-all"
+                  placeholder="Descrição detalhada do ativo..."
+                />
+              </div>
+              
+              <div className="flex justify-end gap-4 mt-10 pt-6 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    setShowAssetForm(false);
+                    setEditingAsset(null);
+                    setAssetForm({
+                      name: '',
+                      code: '',
+                      category: '',
+                      description: '',
+                      value: '',
+                      status: 'Ativo',
+                      floor_id: '',
+                      room_id: '',
+                      photo: '',
+                      supplier: '',
+                      serial_number: ''
+                    });
+                  }}
+                  className="px-8 py-4 border-2 border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all font-bold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSaveAsset}
+                  disabled={loading}
+                  className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-400 text-white rounded-2xl font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all"
+                >
+                  {loading ? (
+                    <div className="flex items-center gap-3">
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <span>Salvando...</span>
+                    </div>
+                  ) : (
+                    editingAsset ? '✅ Atualizar Ativo' : '💾 Salvar Ativo'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Asset Detail Modal */}
+      {showAssetDetail && (
+        <div className="fixed inset-0 bg-gradient-to-br from-slate-900/80 via-purple-900/80 to-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white/95 backdrop-blur-xl rounded-3xl w-full max-w-4xl max-h-[95vh] overflow-y-auto shadow-2xl border border-white/20">
+            <div className="p-8">
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-gray-900 bg-clip-text text-transparent">
+                    🔍 Detalhes do Ativo
+                  </h3>
+                  <p className="text-gray-600 mt-2">Informações completas do ativo</p>
+                </div>
+                <button
+                  onClick={() => setShowAssetDetail(null)}
+                  className="p-3 hover:bg-gray-100 rounded-2xl transition-colors"
+                >
+                  <Icons.X />
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-6 rounded-2xl border border-blue-100">
+                    <label className="block text-sm font-bold text-blue-700 mb-2">Nome</label>
+                    <p className="text-2xl font-bold text-blue-900">{showAssetDetail.name}</p>
+                  </div>
+                  
+                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-2xl border border-purple-100">
+                    <label className="block text-sm font-bold text-purple-700 mb-2">Código</label>
+                    <p className="text-lg font-mono font-bold text-purple-900 bg-white/70 px-3 py-2 rounded-xl inline-block">
+                      {showAssetDetail.code}
+                    </p>
+                  </div>
+                  
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-2xl border border-green-100">
+                    <label className="block text-sm font-bold text-green-700 mb-3">Categoria</label>
+                    <span className="inline-block px-4 py-2 bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 rounded-2xl text-sm font-bold border border-green-200">
+                      {showAssetDetail.category || 'Sem categoria'}
+                    </span>
+                  </div>
+                  
+                  <div className="bg-gradient-to-r from-orange-50 to-red-50 p-6 rounded-2xl border border-orange-100">
+                    <label className="block text-sm font-bold text-orange-700 mb-3">Status</label>
+                    <StatusBadge status={showAssetDetail.status} />
+                  </div>
+                  
+                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 p-6 rounded-2xl border border-indigo-100">
+                    <label className="block text-sm font-bold text-indigo-700 mb-2">Localização</label>
+                    <div className="flex items-center gap-2 text-indigo-900">
+                      <Icons.MapPin />
+                      <p className="font-bold text-lg">{getFloorName(showAssetDetail.floor_id)}</p>
+                    </div>
+                  </div>
+                  
+                  {showAssetDetail.value && (
+                    <div className="bg-gradient-to-r from-yellow-50 to-orange-50 p-6 rounded-2xl border border-yellow-100">
+                      <label className="block text-sm font-bold text-yellow-700 mb-2">Valor</label>
+                      <div className="flex items-center gap-2">
+                        <Icons.DollarSign />
+                        <p className="text-2xl font-bold text-yellow-900">
+                          R$ {parseFloat(showAssetDetail.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-4">📷 Foto do Ativo</label>
+                    <div className="w-full h-80 bg-gradient-to-br from-gray-100 to-gray-200 rounded-3xl overflow-hidden border-4 border-white shadow-xl">
+                      {showAssetDetail.photo ? (
+                        <img 
+                          src={showAssetDetail.photo} 
+                          alt={showAssetDetail.name} 
+                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <div className="text-center">
+                            <div className="w-16 h-16 bg-gray-400 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                              <Icons.Camera />
+                            </div>
+                            <span className="text-gray-600 font-bold">Nenhuma foto disponível</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {showAssetDetail.description && (
+                    <div className="bg-gradient-to-r from-slate-50 to-gray-50 p-6 rounded-2xl border border-slate-200">
+                      <label className="block text-sm font-bold text-slate-700 mb-3">📝 Descrição</label>
+                      <p className="text-slate-900 leading-relaxed">{showAssetDetail.description}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-4 mt-10 pt-6 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    setShowAssetDetail(null);
+                    handleEditAsset(showAssetDetail);
+                  }}
+                  className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-2xl font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all"
+                >
+                  ✏️ Editar Ativo
+                </button>
+                <button
+                  onClick={() => setShowAssetDetail(null)}
+                  className="px-8 py-4 border-2 border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all font-bold"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// =================== MAIN WRAPPER ===================
+const MainApp = () => {
+  const { user, loading, connectionError } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  useEffect(() => {
+    if (!loading && !user) setShowAuthModal(true);
+  }, [user, loading]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-20 h-20 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-6"></div>
+          <h2 className="text-3xl font-bold text-gray-800 mb-4">🚀 Carregando Sistema</h2>
+          <p className="text-gray-600">Conectando com o banco de dados...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (connectionError) {
+    return (
+      <div className="min-h-screen bg-red-50 flex items-center justify-center p-4">
+        <div className="bg-white/95 backdrop-blur-xl p-8 rounded-3xl shadow-2xl text-center max-w-md border border-red-200">
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <span className="text-3xl">❌</span>
+          </div>
+          <h2 className="text-2xl font-bold text-red-800 mb-4">Erro de Conexão</h2>
+          <p className="text-red-600 mb-6 text-sm leading-relaxed">{connectionError}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="w-full bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+          >
+            🔄 Tentar Novamente
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <>
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50 flex items-center justify-center p-4">
+          <div className="text-center max-w-4xl">
+            <div className="w-40 h-40 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-500 rounded-3xl flex items-center justify-center mx-auto mb-12 shadow-2xl transform hover:scale-105 transition-transform">
+              <span className="text-6xl">📦</span>
+            </div>
+            <h1 className="text-6xl lg:text-7xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent mb-8">
+              Sistema de Ativos
+            </h1>
+            <p className="text-xl lg:text-2xl text-gray-600 mb-16 font-medium max-w-2xl mx-auto">
+              Gerencie todos os seus ativos com tecnologia moderna, análise inteligente e importação simplificada
+            </p>
+            <div className="flex flex-col sm:flex-row gap-6 justify-center">
+              <button 
+                onClick={() => setShowAuthModal(true)} 
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-12 py-6 rounded-2xl text-xl font-bold shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all"
+              >
+                🚀 Começar Agora
+              </button>
+              <button className="bg-white/80 backdrop-blur-xl hover:bg-white text-gray-800 border-2 border-gray-200 hover:border-gray-300 px-12 py-6 rounded-2xl text-xl font-bold transition-all shadow-lg hover:shadow-xl">
+                📋 Ver Demonstração
+              </button>
+            </div>
+            
+            <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl border border-gray-200 shadow-lg">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Icons.Package />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">Gestão Completa</h3>
+                <p className="text-gray-600">Cadastre, organize e monitore todos os seus ativos em um só lugar</p>
+              </div>
+              <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl border border-gray-200 shadow-lg">
+                <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Icons.Upload />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">Importação Excel</h3>
+                <p className="text-gray-600">Importe seus dados existentes facilmente através de planilhas</p>
+              </div>
+              <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl border border-gray-200 shadow-lg">
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Icons.BarChart />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">Relatórios Visuais</h3>
+                <p className="text-gray-600">Visualize estatísticas e gere insights sobre seu patrimônio</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      </>
+    );
+  }
+
+  return <App />;
+};
+
+// =================== ROOT COMPONENT ===================
+export default function AppRoot() {
+  return (
+    <AuthProvider>
+      <MainApp />
+    </AuthProvider>
+  );
+}
