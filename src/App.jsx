@@ -343,7 +343,10 @@ const Icons = {
   DollarSign: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>,
   FileSpreadsheet: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 13H8m0 4h8m0-8H8" /></svg>,
   Camera: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
-  FileText: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+  FileText: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
+  RotateCcw: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M1 4v6h6m16 10v-6h-6M7.15 9.14a8 8 0 1110.85 2.86" /></svg>,
+  Sparkles: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l1.9 5.4L12 7.2l-5.1 1.2L5 14l-1.9-5.4L12 7.2l5.1 1.2L19 3l1.9 5.4L26 7.2l-5.1 1.2L19 14" /></svg>,
+  Zap: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
 };
 
 const ExcelImportModal = ({ isOpen, onClose, onImport, floors, categories, statuses }) => {
@@ -414,7 +417,318 @@ const ExcelImportModal = ({ isOpen, onClose, onImport, floors, categories, statu
       alert('Erro: ' + error.message);
     } finally {
       setIsProcessing(false);
+        <div className="bg-white/80 rounded-3xl p-2 mb-8 shadow-xl">
+          <div className="flex gap-2">
+            <button onClick={() => setActiveTab('dashboard')} className={`flex-1 px-6 py-4 rounded-2xl font-bold ${activeTab === 'dashboard' ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white' : 'text-gray-600 hover:bg-indigo-50'}`}>
+              📊 Dashboard
+            </button>
+            <button onClick={() => setActiveTab('assets')} className={`flex-1 px-6 py-4 rounded-2xl font-bold ${activeTab === 'assets' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' : 'text-gray-600 hover:bg-blue-50'}`}>
+              📦 Ativos ({filteredAssets.length})
+            </button>
+            <button onClick={() => setActiveTab('locations')} className={`flex-1 px-6 py-4 rounded-2xl font-bold ${activeTab === 'locations' ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white' : 'text-gray-600 hover:bg-green-50'}`}>
+              🏢 Localizações ({floors.length})
+            </button>
+          </div>
+        </div>
+
+        {activeTab === 'dashboard' && (
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-3xl shadow-xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-blue-100 text-sm font-bold">Total de Ativos</p>
+                    <p className="text-3xl font-bold">{stats.totalAssets}</p>
+                  </div>
+                  <Icons.Package />
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-3xl shadow-xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-green-100 text-sm font-bold">Ativos Ativos</p>
+                    <p className="text-3xl font-bold">{stats.activeAssets}</p>
+                  </div>
+                  <Icons.CheckCircle />
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-3xl shadow-xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-purple-100 text-sm font-bold">Valor Total</p>
+                    <p className="text-2xl font-bold">R$ {stats.totalValue.toLocaleString('pt-BR')}</p>
+                  </div>
+                  <Icons.DollarSign />
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-6 rounded-3xl shadow-xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-orange-100 text-sm font-bold">Categorias</p>
+                    <p className="text-3xl font-bold">{stats.categories}</p>
+                  </div>
+                  <Icons.BarChart3 />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="bg-white/80 rounded-3xl p-8 shadow-xl">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6">📈 Distribuição por Status</h3>
+                <div className="space-y-4">
+                  {statuses.map(status => {
+                    const count = assets.filter(a => a.status === status).length;
+                    const percentage = stats.totalAssets > 0 ? (count / stats.totalAssets * 100).toFixed(1) : 0;
+                    return (
+                      <div key={status} className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <StatusBadge status={status} />
+                          <span className="font-bold">{count} ativos</span>
+                        </div>
+                        <span className="text-sm text-gray-600">{percentage}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-white/80 rounded-3xl p-8 shadow-xl">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6">📦 Últimos Ativos</h3>
+                <div className="space-y-4">
+                  {stats.recentAssets.map(asset => (
+                    <div key={asset.id} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 cursor-pointer" onClick={() => setShowAssetDetail(asset)}>
+                      <div className="w-12 h-12 bg-gray-200 rounded-xl overflow-hidden flex-shrink-0">
+                        {asset.photo ? (
+                          <img src={asset.photo} alt={asset.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Icons.Package />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-bold text-gray-900">{asset.name}</p>
+                        <p className="text-sm text-gray-600">{asset.code} • {getFloorName(asset.floor_id)}</p>
+                      </div>
+                      <StatusBadge status={asset.status} />
+                    </div>
+                  ))}
+                  {stats.recentAssets.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <Icons.Package />
+                      <p className="mt-2">Nenhum ativo cadastrado ainda</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="bg-white/80 rounded-3xl p-8 shadow-xl">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6">🏢 Distribuição por Andar</h3>
+                <div className="space-y-4">
+                  {floors.map(floor => {
+                    const floorAssets = assets.filter(a => a.floor_id === floor.id);
+                    const percentage = stats.totalAssets > 0 ? (floorAssets.length / stats.totalAssets * 100).toFixed(1) : 0;
+                    return (
+                      <div key={floor.id} className="flex items-center justify-between p-4 bg-green-50 rounded-2xl">
+                        <div>
+                          <p className="font-bold text-green-900">{floor.name}</p>
+                          <p className="text-sm text-green-700">{floorAssets.length} ativos</p>
+                        </div>
+                        <span className="text-sm text-green-600 font-bold">{percentage}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-white/80 rounded-3xl p-8 shadow-xl">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6">🏷️ Distribuição por Categoria</h3>
+                <div className="space-y-4">
+                  {categories.map(category => {
+                    const categoryAssets = assets.filter(a => a.category === category);
+                    const percentage = stats.totalAssets > 0 ? (categoryAssets.length / stats.totalAssets * 100).toFixed(1) : 0;
+                    return (
+                      <div key={category} className="flex items-center justify-between p-4 bg-purple-50 rounded-2xl">
+                        <div>
+                          <p className="font-bold text-purple-900">{category}</p>
+                          <p className="text-sm text-purple-700">{categoryAssets.length} ativos</p>
+                        </div>
+                        <span className="text-sm text-purple-600 font-bold">{percentage}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+  // Função de análise simulada por IA
+  const simulateAIAnalysis = (imageData) => {
+    const objects = [
+      { name: 'Notebook', confidence: 92, category: 'Informática', description: 'Notebook para desenvolvimento' },
+      { name: 'Monitor', confidence: 88, category: 'Informática', description: 'Monitor LED 24 polegadas' },
+      { name: 'Cadeira', confidence: 85, category: 'Móveis', description: 'Cadeira ergonômica de escritório' },
+      { name: 'Mesa', confidence: 90, category: 'Móveis', description: 'Mesa de escritório em madeira' },
+      { name: 'Impressora', confidence: 87, category: 'Equipamentos', description: 'Impressora multifuncional' }
+    ];
+    
+    return objects[Math.floor(Math.random() * objects.length)];
+  };
+
+  // Funções de foto
+  const openPhotoOptions = () => {
+    setPhotoState(prev => ({ ...prev, showOptions: true }));
+  };
+
+  const closeAllPhotoModals = () => {
+    setPhotoState({
+      showOptions: false,
+      showCamera: false, 
+      showPreview: false,
+      capturedPhoto: null,
+      isProcessing: false,
+      error: '',
+      aiAnalysis: null
+    });
+    if (videoRef.current?.srcObject) {
+      videoRef.current.srcObject.getTracks().forEach(track => track.stop());
     }
+  };
+
+  const startCamera = async () => {
+    try {
+      setPhotoState(prev => ({ ...prev, showOptions: false, showCamera: true, error: '' }));
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment', width: 1280, height: 720 } 
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (error) {
+      setPhotoState(prev => ({ ...prev, error: 'Erro ao acessar câmera: ' + error.message, showCamera: false }));
+    }
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+    
+    const photoDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    setPhotoState(prev => ({ 
+      ...prev, 
+      capturedPhoto: photoDataUrl, 
+      showCamera: false, 
+      showPreview: true 
+    }));
+    
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach(track => track.stop());
+    }
+  };
+
+  const selectFromGallery = () => {
+    setPhotoState(prev => ({ ...prev, showOptions: false }));
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPhotoState(prev => ({ 
+          ...prev, 
+          capturedPhoto: e.target.result, 
+          showPreview: true 
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+    event.target.value = '';
+  };
+
+  const processPhotoWithAI = async (photoData) => {
+    setPhotoState(prev => ({ ...prev, isProcessing: true }));
+    
+    try {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const analysis = simulateAIAnalysis(photoData);
+      
+      setPhotoState(prev => ({ ...prev, aiAnalysis: analysis, isProcessing: false }));
+      
+      setAssetForm(prevForm => ({
+        ...prevForm,
+        name: analysis.name,
+        category: analysis.category,
+        description: analysis.description,
+        photo: photoData
+      }));
+      
+    } catch (error) {
+      setPhotoState(prev => ({ 
+        ...prev, 
+        isProcessing: false, 
+        error: 'Erro na análise: ' + error.message 
+      }));
+    }
+  };
+
+  const confirmPhoto = async () => {
+    if (photoState.capturedPhoto) {
+      await processPhotoWithAI(photoState.capturedPhoto);
+      closeAllPhotoModals();
+    }
+  };
+
+  const retakePhoto = () => {
+    setPhotoState(prev => ({ 
+      ...prev, 
+      showPreview: false, 
+      capturedPhoto: null 
+    }));
+    startCamera();
+  };
+
+  const removePhotoFromForm = () => {
+    setAssetForm(prev => ({ ...prev, photo: '' }));
+    setPhotoState(prev => ({ ...prev, aiAnalysis: null }));
+  };
+
+  const resetAssetForm = () => {
+    setAssetForm({ name: '', code: '', category: '', description: '', value: '', status: 'Ativo', floor_id: '', room_id: '', photo: '', supplier: '', serial_number: '' });
+    setPhotoState(prev => ({ ...prev, aiAnalysis: null }));
+  };
+
+  const handleEditAsset = (asset) => {
+    setEditingAsset(asset);
+    setAssetForm({
+      name: asset.name,
+      code: asset.code,
+      category: asset.category || '',
+      description: asset.description || '',
+      value: asset.value || '',
+      status: asset.status,
+      floor_id: asset.floor_id,
+      room_id: asset.room_id || '',
+      photo: asset.photo || '',
+      supplier: asset.supplier || '',
+      serial_number: asset.serial_number || ''
+    });
+    setShowAssetForm(true);
+    setShowAssetDetail(null);
   };
 
   const handleImport = async () => {
@@ -869,7 +1183,7 @@ const AuthModal = ({ isOpen, onClose }) => {
 
 const App = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('assets');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [assets, setAssets] = useState([]);
   const [floors, setFloors] = useState([]);
   const [filteredAssets, setFilteredAssets] = useState([]);
@@ -882,6 +1196,19 @@ const App = () => {
   const [importResult, setImportResult] = useState(null);
   const [editingAsset, setEditingAsset] = useState(null);
   const [assetForm, setAssetForm] = useState({ name: '', code: '', category: '', description: '', value: '', status: 'Ativo', floor_id: '', room_id: '', photo: '', supplier: '', serial_number: '' });
+  const [showAssetDetail, setShowAssetDetail] = useState(null);
+  const [photoState, setPhotoState] = useState({
+    showOptions: false,
+    showCamera: false,
+    showPreview: false,
+    capturedPhoto: null,
+    isProcessing: false,
+    error: '',
+    aiAnalysis: null
+  });
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const categories = ['Informática', 'Móveis', 'Equipamentos', 'Veículos', 'Eletrônicos', 'Outros'];
   const statuses = ['Ativo', 'Inativo', 'Manutenção', 'Descartado'];
@@ -990,6 +1317,23 @@ const App = () => {
 
   const getFloorName = (floorId) => floors.find(f => f.id === floorId)?.name || 'N/A';
   const getRoomsForFloor = (floorId) => floors.find(f => f.id == floorId)?.rooms || [];
+  const getRoomName = (roomId) => {
+    for (const floor of floors) {
+      const room = floor.rooms?.find(r => r.id === roomId);
+      if (room) return room.name;
+    }
+    return 'N/A';
+  };
+
+  // Estatísticas para o dashboard
+  const stats = {
+    totalAssets: assets.length,
+    activeAssets: assets.filter(a => a.status === 'Ativo').length,
+    totalValue: assets.reduce((sum, a) => sum + (parseFloat(a.value) || 0), 0),
+    categories: [...new Set(assets.map(a => a.category).filter(Boolean))].length,
+    floors: floors.length,
+    recentAssets: assets.slice(0, 5)
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">
@@ -1076,6 +1420,9 @@ const App = () => {
                   </div>
 
                   <div className="flex space-x-3">
+                    <button onClick={() => { setShowAssetDetail(asset); }} className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-3 rounded-2xl flex items-center justify-center space-x-2 font-bold">
+                      <Icons.Eye /><span>Ver</span>
+                    </button>
                     <button onClick={() => { setEditingAsset(asset); setAssetForm({ name: asset.name, code: asset.code, category: asset.category || '', description: asset.description || '', value: asset.value || '', status: asset.status, floor_id: asset.floor_id, room_id: asset.room_id || '', photo: asset.photo || '', supplier: asset.supplier || '', serial_number: asset.serial_number || '' }); setShowAssetForm(true); }} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-2xl flex items-center justify-center space-x-2 font-bold">
                       <Icons.Edit /><span>Editar</span>
                     </button>
@@ -1168,6 +1515,41 @@ const App = () => {
                 
                 <div className="space-y-6">
                   <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-4">📷 Foto do Ativo</label>
+                    <div className="space-y-4">
+                      {assetForm.photo ? (
+                        <div className="relative">
+                          <div className="w-full h-64 bg-gradient-to-br from-gray-100 to-gray-200 rounded-3xl overflow-hidden border-4 border-white shadow-xl">
+                            <img src={assetForm.photo} alt="Foto do ativo" className="w-full h-full object-cover" />
+                          </div>
+                          <div className="flex space-x-3 mt-4">
+                            <button type="button" onClick={openPhotoOptions} className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white px-4 py-4 rounded-2xl flex items-center justify-center space-x-3 text-sm font-bold">
+                              <Icons.Camera /><span>📷 Alterar Foto</span>
+                            </button>
+                            <button type="button" onClick={removePhotoFromForm} className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white px-4 py-4 rounded-2xl">
+                              <Icons.Trash2 />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div onClick={openPhotoOptions} className="w-full h-64 border-4 border-dashed border-purple-300 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all duration-200 bg-gradient-to-br from-purple-50/50 via-blue-50/50 to-cyan-50/50">
+                          <div className="text-center p-8">
+                            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                              <Icons.Camera />
+                            </div>
+                            <p className="text-gray-700 font-bold text-lg mb-2">📷 Clique para adicionar foto</p>
+                            <p className="text-gray-600 font-medium mb-4">Tire uma foto ou escolha da galeria</p>
+                            <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 rounded-2xl text-sm font-bold">
+                              <Icons.Sparkles />
+                              <span className="ml-2">Com análise de IA</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div>
                     <label className="block text-sm font-bold text-gray-700 mb-3">Valor (R$)</label>
                     <input type="number" step="0.01" value={assetForm.value} onChange={(e) => setAssetForm({...assetForm, value: e.target.value})} className="w-full px-4 py-4 border rounded-2xl focus:ring-2 focus:ring-purple-500" placeholder="0.00" />
                   </div>
@@ -1194,7 +1576,7 @@ const App = () => {
               </div>
               
               <div className="flex justify-end space-x-4 mt-10 pt-6 border-t">
-                <button onClick={() => { setShowAssetForm(false); setEditingAsset(null); }} className="px-8 py-4 border-2 border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 font-bold">Cancelar</button>
+                <button onClick={() => { setShowAssetForm(false); setEditingAsset(null); resetAssetForm(); }} className="px-8 py-4 border-2 border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 font-bold">Cancelar</button>
                 <button onClick={handleSaveAsset} className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-2xl font-bold">
                   {editingAsset ? '✅ Atualizar' : '💾 Salvar'}
                 </button>
@@ -1203,6 +1585,152 @@ const App = () => {
           </div>
         </div>
       )}
+
+      {/* Modal de Opções de Foto */}
+      {photoState.showOptions && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold">📷 Adicionar Foto</h3>
+              <button onClick={closeAllPhotoModals} className="p-2 hover:bg-gray-100 rounded-xl"><Icons.X /></button>
+            </div>
+            <div className="space-y-4">
+              <button onClick={startCamera} className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white px-6 py-5 rounded-2xl flex items-center justify-center space-x-3 font-bold">
+                <Icons.Camera /><span>📷 Tirar Foto</span>
+              </button>
+              <button onClick={selectFromGallery} className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-5 rounded-2xl flex items-center justify-center space-x-3 font-bold">
+                <Icons.Upload /><span>📁 Escolher da Galeria</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal da Câmera */}
+      {photoState.showCamera && (
+        <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
+          <div className="w-full h-full relative">
+            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+            <canvas ref={canvasRef} className="hidden" />
+            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-4">
+              <button onClick={closeAllPhotoModals} className="bg-red-600 hover:bg-red-700 text-white px-6 py-4 rounded-2xl font-bold">❌ Cancelar</button>
+              <button onClick={capturePhoto} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-bold">📸 Capturar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Preview da Foto */}
+      {photoState.showPreview && photoState.capturedPhoto && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl">
+            <div className="p-8">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-bold">🖼️ Preview da Foto</h3>
+                <button onClick={closeAllPhotoModals} className="p-2 hover:bg-gray-100 rounded-xl"><Icons.X /></button>
+              </div>
+              <div className="w-full bg-gray-100 rounded-2xl overflow-hidden mb-6">
+                <img src={photoState.capturedPhoto} alt="Foto capturada" className="w-full h-auto" />
+              </div>
+              <div className="flex space-x-4">
+                <button onClick={confirmPhoto} className="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-2xl font-bold">✅ Usar Foto</button>
+                <button onClick={retakePhoto} className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-4 rounded-2xl font-bold">🔄 Refazer</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Loading de Processamento IA */}
+      {photoState.isProcessing && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-3xl p-10 text-center shadow-2xl">
+            <div className="w-20 h-20 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-6"></div>
+            <h3 className="text-2xl font-bold mb-3">🤖 Analisando com IA</h3>
+            <p className="text-gray-600">Identificando objeto na foto...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Notificação de Análise IA */}
+      {photoState.aiAnalysis && (
+        <div className="fixed top-6 right-6 bg-gradient-to-r from-green-500 to-emerald-500 text-white p-6 rounded-2xl shadow-2xl z-50 max-w-sm">
+          <div className="flex items-start space-x-3">
+            <Icons.Zap />
+            <div>
+              <p className="font-bold">🤖 IA Detectou:</p>
+              <p className="text-sm opacity-90">{photoState.aiAnalysis.name} ({photoState.aiAnalysis.confidence}% confiança)</p>
+              <p className="text-xs opacity-75 mt-1">Dados preenchidos automaticamente!</p>
+            </div>
+            <button onClick={() => setPhotoState(prev => ({ ...prev, aiAnalysis: null }))} className="hover:bg-white/20 rounded-xl p-1"><Icons.X /></button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Detalhes do Ativo */}
+      {showAssetDetail && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[95vh] overflow-y-auto shadow-2xl">
+            <div className="p-8">
+              <div className="flex justify-between items-center mb-8">
+                <h3 className="text-3xl font-bold">🔍 Detalhes do Ativo</h3>
+                <button onClick={() => setShowAssetDetail(null)} className="p-3 hover:bg-gray-100 rounded-2xl"><Icons.X /></button>
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <div className="bg-blue-50 p-6 rounded-2xl">
+                    <label className="block text-sm font-bold text-blue-700 mb-2">Nome</label>
+                    <p className="text-xl font-bold text-blue-900">{showAssetDetail.name}</p>
+                  </div>
+                  <div className="bg-purple-50 p-6 rounded-2xl">
+                    <label className="block text-sm font-bold text-purple-700 mb-2">Código</label>
+                    <p className="text-lg font-mono font-bold text-purple-900">{showAssetDetail.code}</p>
+                  </div>
+                  <div className="bg-green-50 p-6 rounded-2xl">
+                    <label className="block text-sm font-bold text-green-700 mb-2">Categoria</label>
+                    <p className="text-lg font-bold text-green-900">{showAssetDetail.category || 'Sem categoria'}</p>
+                  </div>
+                  <div className="bg-orange-50 p-6 rounded-2xl">
+                    <label className="block text-sm font-bold text-orange-700 mb-2">Status</label>
+                    <StatusBadge status={showAssetDetail.status} />
+                  </div>
+                  <div className="bg-indigo-50 p-6 rounded-2xl">
+                    <label className="block text-sm font-bold text-indigo-700 mb-2">Localização</label>
+                    <p className="font-bold text-indigo-900">{getFloorName(showAssetDetail.floor_id)} {showAssetDetail.room_id ? `- ${getRoomName(showAssetDetail.room_id)}` : ''}</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-4">📷 Foto</label>
+                    <div className="w-full h-80 bg-gray-100 rounded-2xl overflow-hidden">
+                      {showAssetDetail.photo ? (
+                        <img src={showAssetDetail.photo} alt={showAssetDetail.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center"><Icons.Camera /><span className="ml-2">Sem foto</span></div>
+                      )}
+                    </div>
+                  </div>
+                  {showAssetDetail.description && (
+                    <div className="bg-slate-50 p-6 rounded-2xl">
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Descrição</label>
+                      <p className="text-slate-900">{showAssetDetail.description}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-4 mt-8 pt-6 border-t">
+                <button onClick={() => handleEditAsset(showAssetDetail)} className="px-8 py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl font-bold">✏️ Editar</button>
+                <button onClick={() => setShowAssetDetail(null)} className="px-8 py-4 border-2 border-gray-300 rounded-2xl font-bold">Fechar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
 
       <ExcelImportModal isOpen={showExcelImport} onClose={() => setShowExcelImport(false)} onImport={handleExcelImport} floors={floors} categories={categories} statuses={statuses} />
       <ImportResultModal isOpen={showImportResult} onClose={() => { setShowImportResult(false); setImportResult(null); }} result={importResult} />
