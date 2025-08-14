@@ -1730,10 +1730,6 @@ const App = () => {
         </div>
       )}
 
-      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
-
-      <ExcelImportModal isOpen={showExcelImport} onClose={() => setShowExcelImport(false)} onImport={handleExcelImport} floors={floors} categories={categories} statuses={statuses} />
-      <ImportResultModal isOpen={showImportResult} onClose={() => { setShowImportResult(false); setImportResult(null); }} result={importResult} />
     </div>
   );
 };
