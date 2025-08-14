@@ -3,6 +3,8 @@ import * as XLSX from 'xlsx';
 import { neon } from '@neondatabase/serverless';
 
 // =================== AUTH CONTEXT ===================
+
+// =================== AUTH CONTEXT ===================
 const AuthContext = createContext({});
 const useAuth = () => useContext(AuthContext);
 
