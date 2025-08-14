@@ -3,8 +3,6 @@ import * as XLSX from 'xlsx';
 import { neon } from '@neondatabase/serverless';
 
 // =================== AUTH CONTEXT ===================
-
-// =================== AUTH CONTEXT ===================
 const AuthContext = createContext({});
 const useAuth = () => useContext(AuthContext);
 
@@ -207,7 +205,6 @@ const databaseService = {
 
 // =================== MODERN ICONS ===================
 const Icons = {
-  // Ícones existentes mantidos
   User: () => (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -316,13 +313,6 @@ const Icons = {
       <line x1="3" y1="18" x2="3.01" y2="18"></line>
     </svg>
   ),
-  Settings: () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="3"></circle>
-      <path d="m12 1 1.68 3.28L16.4 3.4l.88 3.53L21 8.12v3.54l-2.72 1.19L18.4 16.4l-3.28.88-1.19 2.72h-3.54l-1.19-2.72L5.6 16.4l-.88-3.53L1 15.88v-3.54l2.72-1.19L3.6 7.6l3.28-.88L8.12 4H11.88z"></path>
-    </svg>
-  ),
-  // Novos ícones modernos
   Dashboard: () => (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <rect x="3" y="3" width="7" height="9"></rect>
@@ -343,22 +333,11 @@ const Icons = {
       <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"></polyline>
     </svg>
   ),
-  Home: () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path>
-      <polyline points="9,22 9,12 15,12 15,22"></polyline>
-    </svg>
-  ),
   Archive: () => (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <polyline points="21,8 21,21 3,21 3,8"></polyline>
       <rect x="1" y="3" width="22" height="5"></rect>
       <line x1="10" y1="12" x2="14" y2="12"></line>
-    </svg>
-  ),
-  Star: () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"></polygon>
     </svg>
   ),
   Zap: () => (
@@ -370,6 +349,11 @@ const Icons = {
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <circle cx="12" cy="8" r="7"></circle>
       <polyline points="8.21,13.89 7,23 12,20 17,23 15.79,13.88"></polyline>
+    </svg>
+  ),
+  Star: () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"></polygon>
     </svg>
   )
 };
@@ -390,20 +374,13 @@ const LoadingSpinner = ({ size = 'md', text = '' }) => {
   );
 };
 
-// =================== MODERN STATUS BADGE ===================
+// =================== STATUS BADGE ===================
 const StatusBadge = ({ status }) => {
   const variants = {
     'Ativo': 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg',
     'Inativo': 'bg-gradient-to-r from-slate-400 to-slate-500 text-white shadow-lg',
     'Manutenção': 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg',
     'Descartado': 'bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-lg'
-  };
-
-  const icons = {
-    'Ativo': '●',
-    'Inativo': '⏸',
-    'Manutenção': '🔧',
-    'Descartado': '×'
   };
 
   return (
@@ -414,11 +391,10 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-// =================== MODERN ASSET CARD ===================
+// =================== ASSET CARD ===================
 const AssetCard = ({ asset, onView, onEdit, onDelete, getFloorName }) => {
   return (
     <div className="group bg-white rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-500 overflow-hidden border border-slate-200/50 hover:border-indigo-300 transform hover:-translate-y-2">
-      {/* Photo Section */}
       <div className="relative h-56 bg-gradient-to-br from-slate-50 to-slate-100 overflow-hidden">
         {asset.photo ? (
           <>
@@ -440,12 +416,10 @@ const AssetCard = ({ asset, onView, onEdit, onDelete, getFloorName }) => {
           </div>
         )}
         
-        {/* Status Badge Overlay */}
         <div className="absolute top-4 right-4">
           <StatusBadge status={asset.status} />
         </div>
 
-        {/* Action Buttons Overlay */}
         <div className="absolute bottom-4 left-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-4 group-hover:translate-y-0">
           <div className="flex gap-2">
             <button
@@ -466,9 +440,7 @@ const AssetCard = ({ asset, onView, onEdit, onDelete, getFloorName }) => {
         </div>
       </div>
 
-      {/* Content Section */}
       <div className="p-6">
-        {/* Header */}
         <div className="mb-4">
           <h3 className="text-xl font-bold text-slate-900 group-hover:text-indigo-600 transition-colors truncate mb-2">
             {asset.name}
@@ -478,7 +450,6 @@ const AssetCard = ({ asset, onView, onEdit, onDelete, getFloorName }) => {
           </p>
         </div>
 
-        {/* Info Grid */}
         <div className="space-y-3 mb-6">
           {asset.category && (
             <div className="flex items-center gap-3 text-sm">
@@ -506,7 +477,6 @@ const AssetCard = ({ asset, onView, onEdit, onDelete, getFloorName }) => {
           )}
         </div>
 
-        {/* Footer Actions */}
         <div className="flex gap-2 pt-4 border-t border-slate-100">
           <button
             onClick={() => onDelete(asset)}
@@ -682,6 +652,198 @@ const AuthModal = ({ isOpen, onClose }) => {
   );
 };
 
+// =================== PHOTO HANDLER ===================
+const usePhotoHandler = (onPhotoCapture) => {
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [stream, setStream] = useState(null);
+  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
+
+  const startCamera = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      setStream(mediaStream);
+      setIsCapturing(true);
+      setShowPhotoOptions(false);
+      
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+        }
+      }, 100);
+    } catch (error) {
+      console.error('Erro ao acessar a câmera:', error);
+      alert('Não foi possível acessar a câmera. Tente fazer upload de uma imagem.');
+    }
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0);
+      
+      const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+      onPhotoCapture(dataURL);
+      stopCamera();
+    }
+  };
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setIsCapturing(false);
+  };
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        onPhotoCapture(e.target.result);
+        setShowPhotoOptions(false);
+      };
+      reader.readAsDataURL(file);
+    }
+    event.target.value = '';
+  };
+
+  const openPhotoOptions = () => {
+    setShowPhotoOptions(true);
+  };
+
+  const closePhotoOptions = () => {
+    setShowPhotoOptions(false);
+    stopCamera();
+  };
+
+  return {
+    videoRef,
+    canvasRef,
+    fileInputRef,
+    isCapturing,
+    showPhotoOptions,
+    startCamera,
+    capturePhoto,
+    stopCamera,
+    handleFileUpload,
+    openPhotoOptions,
+    closePhotoOptions
+  };
+};
+
+// =================== PHOTO MODAL ===================
+const PhotoModal = ({ 
+  isOpen, 
+  onClose, 
+  videoRef, 
+  canvasRef, 
+  fileInputRef, 
+  isCapturing, 
+  onStartCamera, 
+  onCapturePhoto, 
+  onFileUpload 
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl flex items-center justify-center p-4 z-[60]">
+      <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl border border-white/20">
+        <div className="p-8">
+          <div className="flex justify-between items-center mb-8">
+            <h3 className="text-3xl font-black text-slate-900">Adicionar Foto</h3>
+            <button
+              onClick={onClose}
+              className="p-3 hover:bg-slate-100 rounded-2xl transition-all"
+            >
+              <Icons.X />
+            </button>
+          </div>
+
+          {isCapturing ? (
+            <div className="space-y-6">
+              <div className="relative bg-black rounded-2xl overflow-hidden">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full h-80 object-cover"
+                />
+                <canvas ref={canvasRef} className="hidden" />
+              </div>
+              
+              <div className="flex gap-4">
+                <button
+                  onClick={onCapturePhoto}
+                  className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-6 py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all"
+                >
+                  <Icons.Camera />
+                  Capturar Foto
+                </button>
+                <button
+                  onClick={onClose}
+                  className="px-6 py-4 border-2 border-slate-300 text-slate-700 rounded-2xl hover:bg-slate-100 transition-all font-bold"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <button
+                  onClick={onStartCamera}
+                  className="bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white p-8 rounded-2xl font-bold text-lg flex flex-col items-center gap-4 shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all"
+                >
+                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
+                    <Icons.Camera />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xl font-black mb-2">Tirar Foto</p>
+                    <p className="text-sm opacity-90">Use a câmera do dispositivo</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white p-8 rounded-2xl font-bold text-lg flex flex-col items-center gap-4 shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all"
+                >
+                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
+                    <Icons.Upload />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xl font-black mb-2">Escolher Arquivo</p>
+                    <p className="text-sm opacity-90">Selecionar da galeria</p>
+                  </div>
+                </button>
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={onFileUpload}
+                className="hidden"
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // =================== AUTH PROVIDER ===================
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -823,199 +985,6 @@ const AuthProvider = ({ children }) => {
   );
 };
 
-// =================== PHOTO HANDLER ===================
-const usePhotoHandler = (onPhotoCapture) => {
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [stream, setStream] = useState(null);
-  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
-
-  const startCamera = async () => {
-    try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
-      });
-      setStream(mediaStream);
-      setIsCapturing(true);
-      setShowPhotoOptions(false);
-      
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = mediaStream;
-        }
-      }, 100);
-    } catch (error) {
-      console.error('Erro ao acessar a câmera:', error);
-      alert('Não foi possível acessar a câmera. Tente fazer upload de uma imagem.');
-    }
-  };
-
-  const capturePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0);
-      
-      const dataURL = canvas.toDataURL('image/jpeg', 0.8);
-      onPhotoCapture(dataURL);
-      stopCamera();
-    }
-  };
-
-  const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
-    setIsCapturing(false);
-  };
-
-  const handleFileUpload = (event) => {
-    const file = event.target.files[0];
-    if (file && file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        onPhotoCapture(e.target.result);
-        setShowPhotoOptions(false);
-      };
-      reader.readAsDataURL(file);
-    }
-    // Reset input
-    event.target.value = '';
-  };
-
-  const openPhotoOptions = () => {
-    setShowPhotoOptions(true);
-  };
-
-  const closePhotoOptions = () => {
-    setShowPhotoOptions(false);
-    stopCamera();
-  };
-
-  return {
-    videoRef,
-    canvasRef,
-    fileInputRef,
-    isCapturing,
-    showPhotoOptions,
-    startCamera,
-    capturePhoto,
-    stopCamera,
-    handleFileUpload,
-    openPhotoOptions,
-    closePhotoOptions
-  };
-};
-
-// =================== PHOTO MODAL COMPONENT ===================
-const PhotoModal = ({ 
-  isOpen, 
-  onClose, 
-  videoRef, 
-  canvasRef, 
-  fileInputRef, 
-  isCapturing, 
-  onStartCamera, 
-  onCapturePhoto, 
-  onFileUpload 
-}) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl flex items-center justify-center p-4 z-[60]">
-      <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl border border-white/20">
-        <div className="p-8">
-          <div className="flex justify-between items-center mb-8">
-            <h3 className="text-3xl font-black text-slate-900">Adicionar Foto</h3>
-            <button
-              onClick={onClose}
-              className="p-3 hover:bg-slate-100 rounded-2xl transition-all"
-            >
-              <Icons.X />
-            </button>
-          </div>
-
-          {isCapturing ? (
-            <div className="space-y-6">
-              <div className="relative bg-black rounded-2xl overflow-hidden">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  className="w-full h-80 object-cover"
-                />
-                <canvas ref={canvasRef} className="hidden" />
-              </div>
-              
-              <div className="flex gap-4">
-                <button
-                  onClick={onCapturePhoto}
-                  className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-6 py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all"
-                >
-                  <Icons.Camera />
-                  Capturar Foto
-                </button>
-                <button
-                  onClick={onClose}
-                  className="px-6 py-4 border-2 border-slate-300 text-slate-700 rounded-2xl hover:bg-slate-100 transition-all font-bold"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <button
-                  onClick={onStartCamera}
-                  className="bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white p-8 rounded-2xl font-bold text-lg flex flex-col items-center gap-4 shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all"
-                >
-                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
-                    <Icons.Camera />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xl font-black mb-2">Tirar Foto</p>
-                    <p className="text-sm opacity-90">Use a câmera do dispositivo</p>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white p-8 rounded-2xl font-bold text-lg flex flex-col items-center gap-4 shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all"
-                >
-                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
-                    <Icons.Upload />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xl font-black mb-2">Escolher Arquivo</p>
-                    <p className="text-sm opacity-90">Selecionar da galeria</p>
-                  </div>
-                </button>
-              </div>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={onFileUpload}
-                className="hidden"
-              />
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // =================== MAIN APP COMPONENT ===================
 const App = () => {
   const { user } = useAuth();
@@ -1046,115 +1015,16 @@ const App = () => {
     serial_number: ''
   });
 
-// =================== EXCEL IMPORT HANDLER ===================
-const useExcelImport = (onImportComplete) => {
-  const fileInputRef = useRef(null);
-  const [isImporting, setIsImporting] = useState(false);
-  const [importProgress, setImportProgress] = useState(0);
-  const [importResults, setImportResults] = useState(null);
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [excelData, setExcelData] = useState([]);
-  const [columnMapping, setColumnMapping] = useState({});
-  const [showMappingModal, setShowMappingModal] = useState(false);
-
-  const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    if (!file.name.match(/\.(xlsx|xls)$/)) {
-      alert('Por favor, selecione um arquivo Excel (.xlsx ou .xls)');
-      return;
-    }
-
-    setIsImporting(true);
-    setImportProgress(10);
-
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      setImportProgress(30);
-
-      const workbook = XLSX.read(arrayBuffer, {
-        cellStyles: true,
-        cellFormulas: true,
-        cellDates: true
-      });
-
-      setImportProgress(50);
-
-      // Pegar a primeira planilha
-      const worksheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[worksheetName];
-
-      // Converter para JSON
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, {
-        raw: false,
-        defval: '',
-        blankrows: false
-      });
-
-      setImportProgress(80);
-
-      console.log('Dados importados:', jsonData);
-
-      if (jsonData.length === 0) {
-        alert('O arquivo Excel está vazio ou não contém dados válidos.');
-        setIsImporting(false);
-        return;
-      }
-
-      setExcelData(jsonData);
-      setImportProgress(100);
-      
-      // Detectar colunas automaticamente
-      const detectedMapping = detectColumnMapping(Object.keys(jsonData[0]));
-      setColumnMapping(detectedMapping);
-      
-      setTimeout(() => {
-        setIsImporting(false);
-        setShowMappingModal(true);
-      }, 500);
-
-    } catch (error) {
-      console.error('Erro ao processar arquivo Excel:', error);
-      alert('Erro ao processar o arquivo Excel. Verifique se o arquivo não está corrompido.');
-      setIsImporting(false);
-      setImportProgress(0);
-    }
-
-    // Reset input
-    event.target.value = '';
-  };
-
-  const detectColumnMapping = (columns) => {
-    const mapping = {};
-    
-    columns.forEach(col => {
-      const lowerCol = col.toLowerCase();
-      
-      // Detectar nome/descrição
-      if (lowerCol.includes('nome') || lowerCol.includes('descrição') || lowerCol.includes('descricao') || 
-          lowerCol.includes('item') || lowerCol.includes('equipamento') || lowerCol.includes('ativo')) {
-        if (!mapping.name) mapping.name = col;
-      }
-      
-      // Detectar código
-      if (lowerCol.includes('codigo') || lowerCol.includes('código') || lowerCol.includes('cod') || 
-          lowerCol.includes('numero') || lowerCol.includes('número') || lowerCol.includes('id')) {
-        if (!mapping.code) mapping.code = col;
-      }
-      
-      // Detectar categoria
-      if (lowerCol.includes('categoria') || lowerCol.includes('tipo') || lowerCol.includes('classe') || 
-          lowerCol.includes('grupo')) {
-        if (!mapping.category) mapping.category = col;
-      }
-      
-      // Detectar valor
-      if (lowerCol.includes('valor') || lowerCol.includes('preco') || lowerCol.includes('preço') || 
-          lowerCol.includes('custo') || lowerCol.includes('r
-
   const categories = ['Informática', 'Móveis', 'Equipamentos', 'Veículos', 'Eletrônicos', 'Outros'];
   const statuses = ['Ativo', 'Inativo', 'Manutenção', 'Descartado'];
+
+  const photoHandler = usePhotoHandler((photo) => {
+    setAssetForm(prev => ({...prev, photo}));
+  });
+
+  const removePhoto = () => {
+    setAssetForm(prev => ({...prev, photo: ''}));
+  };
 
   // Load data
   useEffect(() => {
@@ -1279,7 +1149,7 @@ const useExcelImport = (onImportComplete) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50">
-      {/* Modern Header */}
+      {/* Header */}
       <header className="bg-white/80 backdrop-blur-xl border-b border-white/20 sticky top-0 z-40 shadow-lg">
         <div className="container mx-auto px-6 py-6">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -1299,2643 +1169,4 @@ const useExcelImport = (onImportComplete) => {
             
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-4 bg-gradient-to-r from-indigo-50 to-purple-50 px-6 py-4 rounded-2xl border border-indigo-200">
-                <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                  {user?.name?.charAt(0)}
-                </div>
-                <div>
-                  <p className="font-bold text-slate-900">{user?.name}</p>
-                  <p className="text-sm text-slate-600">{user?.email}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="container mx-auto px-6 py-8">
-        {/* Modern Navigation */}
-        <nav className="bg-white/90 backdrop-blur-xl rounded-3xl p-3 mb-8 shadow-2xl border border-white/20">
-          <div className="flex gap-3">
-            {[
-              { key: 'dashboard', label: 'Dashboard', icon: Icons.Dashboard, color: 'from-indigo-600 to-purple-600', count: null },
-              { key: 'assets', label: 'Ativos', icon: Icons.Archive, color: 'from-emerald-600 to-teal-600', count: filteredAssets.length },
-              { key: 'locations', label: 'Localizações', icon: Icons.Building, color: 'from-amber-600 to-orange-600', count: floors.length }
-            ].map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex-1 px-8 py-5 rounded-2xl font-bold transition-all duration-300 flex items-center justify-center gap-3 text-lg ${
-                  activeTab === tab.key 
-                    ? `bg-gradient-to-r ${tab.color} text-white shadow-xl transform scale-105` 
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800 hover:scale-102'
-                }`}
-              >
-                <tab.icon />
-                <span>{tab.label}</span>
-                {tab.count !== null && (
-                  <span className={`px-3 py-1 rounded-full text-sm font-black ${
-                    activeTab === tab.key ? 'bg-white/20' : 'bg-slate-200 text-slate-600'
-                  }`}>
-                    {tab.count}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </nav>
-
-        {/* Dashboard */}
-        {activeTab === 'dashboard' && (
-          <div className="space-y-8">
-            {/* Enhanced Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-600 text-white p-8 rounded-3xl shadow-2xl transform hover:scale-105 transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-indigo-100 text-sm font-bold uppercase tracking-wider">Total de Ativos</p>
-                    <p className="text-5xl font-black mt-3">{stats.totalAssets}</p>
-                    <div className="flex items-center gap-2 mt-3">
-                      <Icons.TrendingUp />
-                      <p className="text-indigo-200 text-sm">+12% este mês</p>
-                    </div>
-                  </div>
-                  <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center">
-                    <Icons.Archive />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-emerald-500 via-green-500 to-teal-600 text-white p-8 rounded-3xl shadow-2xl transform hover:scale-105 transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-green-100 text-sm font-bold uppercase tracking-wider">Ativos Ativos</p>
-                    <p className="text-5xl font-black mt-3">{stats.activeAssets}</p>
-                    <div className="flex items-center gap-2 mt-3">
-                      <Icons.Activity />
-                      <p className="text-green-200 text-sm">{((stats.activeAssets / stats.totalAssets) * 100 || 0).toFixed(0)}% do total</p>
-                    </div>
-                  </div>
-                  <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center">
-                    <Icons.Zap />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 text-white p-8 rounded-3xl shadow-2xl transform hover:scale-105 transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-orange-100 text-sm font-bold uppercase tracking-wider">Valor Total</p>
-                    <p className="text-3xl font-black mt-3">R$ {stats.totalValue.toLocaleString('pt-BR')}</p>
-                    <div className="flex items-center gap-2 mt-3">
-                      <Icons.Award />
-                      <p className="text-orange-200 text-sm">Patrimônio registrado</p>
-                    </div>
-                  </div>
-                  <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center">
-                    <Icons.DollarSign />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500 text-white p-8 rounded-3xl shadow-2xl transform hover:scale-105 transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-purple-100 text-sm font-bold uppercase tracking-wider">Categorias</p>
-                    <p className="text-5xl font-black mt-3">{stats.categories}</p>
-                    <div className="flex items-center gap-2 mt-3">
-                      <Icons.Star />
-                      <p className="text-purple-200 text-sm">Diferentes tipos</p>
-                    </div>
-                  </div>
-                  <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center">
-                    <Icons.Layers />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Enhanced Charts Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20">
-                <h3 className="text-2xl font-black text-slate-900 mb-8 flex items-center gap-4">
-                  <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-2xl flex items-center justify-center">
-                    <Icons.BarChart />
-                  </div>
-                  Distribuição por Status
-                </h3>
-                <div className="space-y-6">
-                  {statuses.map(status => {
-                    const count = assets.filter(a => a.status === status).length;
-                    const percentage = stats.totalAssets > 0 ? (count / stats.totalAssets * 100).toFixed(1) : 0;
-                    return (
-                      <div key={status} className="flex items-center justify-between p-6 bg-gradient-to-r from-slate-50 to-slate-100 rounded-2xl hover:from-slate-100 hover:to-slate-200 transition-all duration-300 transform hover:scale-105">
-                        <div className="flex items-center gap-4">
-                          <StatusBadge status={status} />
-                          <span className="font-bold text-slate-900 text-lg">{count} ativos</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-2xl font-black text-slate-900">{percentage}%</span>
-                          <div className="w-32 h-3 bg-slate-200 rounded-full mt-2">
-                            <div 
-                              className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-1000"
-                              style={{ width: `${percentage}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20">
-                <h3 className="text-2xl font-black text-slate-900 mb-8 flex items-center gap-4">
-                  <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center">
-                    <Icons.Clock />
-                  </div>
-                  Últimos Ativos Cadastrados
-                </h3>
-                <div className="space-y-4">
-                  {stats.recentAssets.map(asset => (
-                    <div 
-                      key={asset.id} 
-                      className="flex items-center gap-4 p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-2xl hover:from-slate-100 hover:to-slate-200 cursor-pointer transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
-                      onClick={() => setShowAssetDetail(asset)}
-                    >
-                      <div className="w-16 h-16 bg-gradient-to-br from-slate-200 to-slate-300 rounded-2xl overflow-hidden flex-shrink-0 shadow-lg">
-                        {asset.photo ? (
-                          <img src={asset.photo} alt={asset.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Icons.Package />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-bold text-slate-900 truncate text-lg">{asset.name}</p>
-                        <p className="text-sm text-slate-600 font-medium">{asset.code} • {getFloorName(asset.floor_id)}</p>
-                      </div>
-                      <StatusBadge status={asset.status} />
-                    </div>
-                  ))}
-                  {stats.recentAssets.length === 0 && (
-                    <div className="text-center py-16 bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl">
-                      <div className="w-20 h-20 bg-gradient-to-br from-slate-300 to-slate-400 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                        <Icons.Package />
-                      </div>
-                      <p className="text-xl font-bold text-slate-900 mb-4">Nenhum ativo cadastrado ainda</p>
-                      <button
-                        onClick={() => {
-                          setActiveTab('assets');
-                          setShowAssetForm(true);
-                        }}
-                        className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
-                      >
-                        Cadastrar Primeiro Ativo
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Enhanced Assets Section */}
-        {activeTab === 'assets' && (
-          <div className="space-y-8">
-            {/* Modern Controls */}
-            <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
-                <div className="flex flex-col sm:flex-row gap-6">
-                  <button
-                    onClick={() => setShowAssetForm(true)}
-                    className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white px-8 py-5 rounded-2xl flex items-center gap-4 font-bold text-lg shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all"
-                  >
-                    <Icons.Plus />
-                    Novo Ativo
-                  </button>
-                  <button 
-                    onClick={excelImport.openFileDialog}
-                    className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-8 py-5 rounded-2xl flex items-center gap-4 font-bold text-lg shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all"
-                  >
-                    <Icons.Upload />
-                    Importar Excel
-                  </button>
-                  
-                  {/* Hidden file input for Excel import */}
-                  <input
-                    ref={excelImport.fileInputRef}
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={excelImport.handleFileUpload}
-                    className="hidden"
-                  />
-                </div>
-                
-                <div className="flex items-center gap-8">
-                  <div className="text-center bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-2xl">
-                    <p className="text-4xl font-black text-slate-900">{filteredAssets.length}</p>
-                    <p className="text-sm text-slate-600 font-bold">Ativos encontrados</p>
-                  </div>
-                  
-                  <div className="flex bg-slate-100 rounded-2xl p-2 shadow-inner">
-                    <button
-                      onClick={() => setViewMode('grid')}
-                      className={`p-4 rounded-xl transition-all ${viewMode === 'grid' ? 'bg-white shadow-lg text-indigo-600' : 'hover:bg-slate-200 text-slate-600'}`}
-                    >
-                      <Icons.Grid />
-                    </button>
-                    <button
-                      onClick={() => setViewMode('list')}
-                      className={`p-4 rounded-xl transition-all ${viewMode === 'list' ? 'bg-white shadow-lg text-indigo-600' : 'hover:bg-slate-200 text-slate-600'}`}
-                    >
-                      <Icons.List />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Enhanced Filters */}
-              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
-                <div className="relative lg:col-span-2">
-                  <Icons.Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Buscar ativos..."
-                    className="w-full pl-12 pr-4 py-4 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium"
-                  />
-                </div>
-                
-                <select
-                  value={selectedFloor}
-                  onChange={(e) => setSelectedFloor(e.target.value)}
-                  className="px-4 py-4 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium"
-                >
-                  <option value="">Todos os andares</option>
-                  {floors.map(f => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
-                  ))}
-                </select>
-                
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="px-4 py-4 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium"
-                >
-                  <option value="">Todas as categorias</option>
-                  {categories.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-
-                <select
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="px-4 py-4 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium"
-                >
-                  <option value="">Todos os status</option>
-                  {statuses.map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-                
-                <button
-                  onClick={() => {
-                    setSearchTerm('');
-                    setSelectedFloor('');
-                    setSelectedCategory('');
-                    setSelectedStatus('');
-                  }}
-                  className="px-4 py-4 border-2 border-slate-300 rounded-2xl hover:bg-slate-100 font-bold transition-all flex items-center justify-center gap-3 text-slate-700 hover:border-slate-400"
-                >
-                  <Icons.Filter />
-                  Limpar
-                </button>
-              </div>
-            </div>
-
-            {/* Assets Grid/List */}
-            {loading ? (
-              <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20">
-                <LoadingSpinner size="lg" text="Carregando ativos..." />
-              </div>
-            ) : (
-              <>
-                {filteredAssets.length === 0 ? (
-                  <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-20 shadow-2xl border border-white/20 text-center">
-                    <div className="w-32 h-32 bg-gradient-to-br from-slate-200 to-slate-300 rounded-3xl flex items-center justify-center mx-auto mb-8">
-                      <Icons.Package />
-                    </div>
-                    <h3 className="text-3xl font-black text-slate-900 mb-6">
-                      {searchTerm || selectedFloor || selectedCategory || selectedStatus 
-                        ? 'Nenhum ativo encontrado' 
-                        : 'Nenhum ativo cadastrado'
-                      }
-                    </h3>
-                    <p className="text-slate-600 mb-10 max-w-md mx-auto text-lg">
-                      {searchTerm || selectedFloor || selectedCategory || selectedStatus
-                        ? 'Tente ajustar os filtros para encontrar outros ativos'
-                        : 'Comece cadastrando seu primeiro ativo no sistema'
-                      }
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-6 justify-center">
-                      <button
-                        onClick={() => setShowAssetForm(true)}
-                        className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white px-10 py-5 rounded-2xl font-bold text-lg shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all"
-                      >
-                        Cadastrar Primeiro Ativo
-                      </button>
-                      {(searchTerm || selectedFloor || selectedCategory || selectedStatus) && (
-                        <button
-                          onClick={() => {
-                            setSearchTerm('');
-                            setSelectedFloor('');
-                            setSelectedCategory('');
-                            setSelectedStatus('');
-                          }}
-                          className="bg-slate-600 hover:bg-slate-700 text-white px-10 py-5 rounded-2xl font-bold text-lg transition-all shadow-lg hover:shadow-xl"
-                        >
-                          Limpar Filtros
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className={viewMode === 'grid' 
-                    ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8" 
-                    : "space-y-6"
-                  }>
-                    {filteredAssets.map(asset => (
-                      viewMode === 'grid' ? (
-                        <AssetCard
-                          key={asset.id}
-                          asset={asset}
-                          onView={setShowAssetDetail}
-                          onEdit={handleEditAsset}
-                          onDelete={handleDeleteAsset}
-                          getFloorName={getFloorName}
-                        />
-                      ) : (
-                        <div key={asset.id} className="bg-white rounded-3xl shadow-xl hover:shadow-2xl transition-all p-8 border border-slate-200 transform hover:-translate-y-1">
-                          <div className="flex items-center gap-8">
-                            <div className="w-24 h-24 bg-gradient-to-br from-slate-100 to-slate-200 rounded-3xl overflow-hidden flex-shrink-0 shadow-lg">
-                              {asset.photo ? (
-                                <img src={asset.photo} alt={asset.name} className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <Icons.Package />
-                                </div>
-                              )}
-                            </div>
-                            
-                            <div className="flex-1">
-                              <div className="flex items-start justify-between mb-4">
-                                <div>
-                                  <h3 className="text-2xl font-black text-slate-900 mb-2">{asset.name}</h3>
-                                  <p className="text-sm font-mono text-slate-600 bg-slate-100 px-3 py-1 rounded-lg inline-block">{asset.code}</p>
-                                </div>
-                                <StatusBadge status={asset.status} />
-                              </div>
-                              
-                              <div className="flex items-center gap-8 text-sm text-slate-600">
-                                {asset.category && (
-                                  <span className="flex items-center gap-2 font-medium">
-                                    <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                                      <Icons.Layers />
-                                    </div>
-                                    {asset.category}
-                                  </span>
-                                )}
-                                <span className="flex items-center gap-2 font-medium">
-                                  <div className="w-6 h-6 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
-                                    <Icons.MapPin />
-                                  </div>
-                                  {getFloorName(asset.floor_id)}
-                                </span>
-                                {asset.value && (
-                                  <span className="flex items-center gap-2 text-green-700 font-bold">
-                                    <div className="w-6 h-6 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
-                                      <Icons.DollarSign />
-                                    </div>
-                                    R$ {parseFloat(asset.value).toLocaleString('pt-BR')}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            
-                            <div className="flex gap-3">
-                              <button
-                                onClick={() => setShowAssetDetail(asset)}
-                                className="bg-slate-100 hover:bg-slate-200 text-slate-700 p-4 rounded-2xl transition-all shadow-lg hover:shadow-xl"
-                              >
-                                <Icons.Eye />
-                              </button>
-                              <button
-                                onClick={() => handleEditAsset(asset)}
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-2xl transition-all shadow-lg hover:shadow-xl"
-                              >
-                                <Icons.Edit />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteAsset(asset)}
-                                className="bg-red-600 hover:bg-red-700 text-white p-4 rounded-2xl transition-all shadow-lg hover:shadow-xl"
-                              >
-                                <Icons.Trash />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Enhanced Locations */}
-        {activeTab === 'locations' && (
-          <div className="space-y-8">
-            <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20">
-              <div className="flex justify-between items-center mb-10">
-                <div>
-                  <h2 className="text-3xl font-black text-slate-900 flex items-center gap-4 mb-2">
-                    <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center">
-                      <Icons.Building />
-                    </div>
-                    Localizações Cadastradas
-                  </h2>
-                  <p className="text-slate-600 text-lg">Gerencie os andares e salas da sua empresa</p>
-                </div>
-                <button className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white px-8 py-5 rounded-2xl font-bold text-lg flex items-center gap-4 shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all">
-                  <Icons.Plus />
-                  Novo Andar
-                </button>
-              </div>
-              
-              {floors.length === 0 ? (
-                <div className="text-center py-20">
-                  <div className="w-32 h-32 bg-gradient-to-br from-amber-200 to-orange-300 rounded-3xl flex items-center justify-center mx-auto mb-8">
-                    <Icons.Building />
-                  </div>
-                  <h3 className="text-3xl font-black text-slate-900 mb-6">Nenhuma localização cadastrada</h3>
-                  <p className="text-slate-600 mb-10 text-lg">Comece cadastrando os andares e salas da sua empresa</p>
-                  <button className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white px-10 py-5 rounded-2xl font-bold text-lg shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all">
-                    Cadastrar Primeiro Andar
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-                  {floors.map(floor => (
-                    <div key={floor.id} className="bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 p-8 rounded-3xl border border-amber-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-                      <div className="flex justify-between items-start mb-6">
-                        <div>
-                          <h3 className="text-2xl font-black text-amber-900 mb-2">{floor.name}</h3>
-                          {floor.description && (
-                            <p className="text-amber-700 font-medium">{floor.description}</p>
-                          )}
-                        </div>
-                        <div className="flex gap-2">
-                          <button className="bg-amber-600 hover:bg-amber-700 text-white p-3 rounded-2xl transition-all shadow-lg hover:shadow-xl">
-                            <Icons.Edit />
-                          </button>
-                          <button className="bg-red-600 hover:bg-red-700 text-white p-3 rounded-2xl transition-all shadow-lg hover:shadow-xl">
-                            <Icons.Trash />
-                          </button>
-                        </div>
-                      </div>
-                      
-                      {floor.rooms && floor.rooms.length > 0 ? (
-                        <>
-                          <div className="mb-6">
-                            <p className="text-sm text-amber-700 font-bold bg-amber-100 px-4 py-2 rounded-xl inline-block">
-                              {floor.rooms.length} sala{floor.rooms.length !== 1 ? 's' : ''} cadastrada{floor.rooms.length !== 1 ? 's' : ''}
-                            </p>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            {floor.rooms.map(room => (
-                              <div key={room.id} className="bg-white/90 p-5 rounded-2xl border border-amber-200 hover:bg-white transition-all transform hover:scale-105 shadow-lg">
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <h4 className="font-bold text-amber-900 mb-1">{room.name}</h4>
-                                    {room.description && (
-                                      <p className="text-xs text-amber-600 font-medium">{room.description}</p>
-                                    )}
-                                  </div>
-                                  <button className="text-amber-600 hover:text-amber-700 p-2 hover:bg-amber-100 rounded-xl transition-all">
-                                    <Icons.Edit />
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      ) : (
-                        <div className="text-center py-8">
-                          <p className="text-amber-600 font-medium mb-4">Nenhuma sala cadastrada</p>
-                          <button className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-lg hover:shadow-xl">
-                            + Adicionar Sala
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Enhanced Asset Form Modal */}
-      {showAssetForm && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xl flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl w-full max-w-6xl max-h-[95vh] overflow-y-auto shadow-2xl border border-white/20">
-            <div className="p-10">
-              <div className="flex justify-between items-center mb-10">
-                <div>
-                  <h3 className="text-4xl font-black text-slate-900 mb-4">
-                    {editingAsset ? 'Editar Ativo' : 'Novo Ativo'}
-                  </h3>
-                  <p className="text-slate-600 text-lg font-medium">
-                    {editingAsset ? 'Atualize as informações do ativo' : 'Cadastre um novo ativo no sistema'}
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowAssetForm(false);
-                    setEditingAsset(null);
-                    setAssetForm({
-                      name: '',
-                      code: '',
-                      category: '',
-                      description: '',
-                      value: '',
-                      status: 'Ativo',
-                      floor_id: '',
-                      room_id: '',
-                      photo: '',
-                      supplier: '',
-                      serial_number: ''
-                    });
-                  }}
-                  className="p-4 hover:bg-slate-100 rounded-2xl transition-all"
-                >
-                  <Icons.X />
-                </button>
-              </div>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                <div className="space-y-8">
-                  <div>
-                    <label className="block text-sm font-black text-slate-700 mb-4">Nome do Ativo *</label>
-                    <input
-                      type="text"
-                      value={assetForm.name}
-                      onChange={(e) => setAssetForm({...assetForm, name: e.target.value})}
-                      className="w-full px-6 py-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium text-lg"
-                      placeholder="Ex: Notebook Dell Inspiron 15"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-black text-slate-700 mb-4">Código *</label>
-                    <input
-                      type="text"
-                      value={assetForm.code}
-                      onChange={(e) => setAssetForm({...assetForm, code: e.target.value})}
-                      className="w-full px-6 py-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm font-mono transition-all text-lg"
-                      placeholder="Ex: NB-001"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-black text-slate-700 mb-4">Categoria</label>
-                    <select
-                      value={assetForm.category}
-                      onChange={(e) => setAssetForm({...assetForm, category: e.target.value})}
-                      className="w-full px-6 py-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium text-lg"
-                    >
-                      <option value="">Selecione uma categoria</option>
-                      {categories.map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-black text-slate-700 mb-4">Andar *</label>
-                    <select
-                      value={assetForm.floor_id}
-                      onChange={(e) => setAssetForm({...assetForm, floor_id: e.target.value, room_id: ''})}
-                      className="w-full px-6 py-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium text-lg"
-                    >
-                      <option value="">Selecione um andar</option>
-                      {floors.map(floor => (
-                        <option key={floor.id} value={floor.id}>{floor.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-black text-slate-700 mb-4">Sala</label>
-                    <select
-                      value={assetForm.room_id}
-                      onChange={(e) => setAssetForm({...assetForm, room_id: e.target.value})}
-                      className="w-full px-6 py-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium text-lg"
-                      disabled={!assetForm.floor_id}
-                    >
-                      <option value="">Selecione uma sala</option>
-                      {getRoomsForFloor(assetForm.floor_id).map(room => (
-                        <option key={room.id} value={room.id}>{room.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                
-                <div className="space-y-8">
-                  <div>
-                    <label className="block text-sm font-black text-slate-700 mb-6">Foto do Ativo</label>
-                    {assetForm.photo ? (
-                      <div className="relative">
-                        <div className="w-full h-80 bg-gradient-to-br from-slate-100 to-slate-200 rounded-3xl overflow-hidden border-4 border-white shadow-2xl">
-                          <img src={assetForm.photo} alt="Foto do ativo" className="w-full h-full object-cover" />
-                        </div>
-                        <div className="flex gap-4 mt-6">
-                          <button
-                            type="button"
-                            onClick={photoHandler.openPhotoOptions}
-                            className="flex-1 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-700 hover:to-cyan-700 text-white px-6 py-5 rounded-2xl flex items-center justify-center gap-4 font-bold text-lg transition-all shadow-xl hover:shadow-2xl transform hover:scale-105"
-                          >
-                            <Icons.Camera />
-                            Alterar Foto
-                          </button>
-                          <button
-                            type="button"
-                            onClick={removePhoto}
-                            className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white px-6 py-5 rounded-2xl transition-all shadow-xl hover:shadow-2xl transform hover:scale-105"
-                          >
-                            <Icons.Trash />
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div 
-                        onClick={photoHandler.openPhotoOptions}
-                        className="w-full h-80 border-4 border-dashed border-indigo-300 rounded-3xl flex items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-all bg-gradient-to-br from-indigo-50/50 via-purple-50/50 to-pink-50/50 backdrop-blur-sm transform hover:scale-105"
-                      >
-                        <div className="text-center p-10">
-                          <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl">
-                            <Icons.Camera />
-                          </div>
-                          <p className="text-slate-700 font-black text-xl mb-4">Clique para adicionar foto</p>
-                          <p className="text-slate-600 mb-6 font-medium">Tire uma foto ou escolha da galeria</p>
-                          <div className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 rounded-2xl text-sm font-bold border border-indigo-200">
-                            <span>Recomendado</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-black text-slate-700 mb-4">Valor (R$)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={assetForm.value}
-                        onChange={(e) => setAssetForm({...assetForm, value: e.target.value})}
-                        className="w-full px-6 py-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium text-lg"
-                        placeholder="0.00"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-black text-slate-700 mb-4">Status</label>
-                      <select
-                        value={assetForm.status}
-                        onChange={(e) => setAssetForm({...assetForm, status: e.target.value})}
-                        className="w-full px-6 py-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium text-lg"
-                      >
-                        {statuses.map(status => (
-                          <option key={status} value={status}>{status}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-black text-slate-700 mb-4">Fornecedor</label>
-                    <input
-                      type="text"
-                      value={assetForm.supplier}
-                      onChange={(e) => setAssetForm({...assetForm, supplier: e.target.value})}
-                      className="w-full px-6 py-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium text-lg"
-                      placeholder="Nome do fornecedor"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-black text-slate-700 mb-4">Número de Série</label>
-                    <input
-                      type="text"
-                      value={assetForm.serial_number}
-                      onChange={(e) => setAssetForm({...assetForm, serial_number: e.target.value})}
-                      className="w-full px-6 py-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm font-mono transition-all text-lg"
-                      placeholder="SN123456"
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="mt-10">
-                <label className="block text-sm font-black text-slate-700 mb-4">Descrição</label>
-                <textarea
-                  value={assetForm.description}
-                  onChange={(e) => setAssetForm({...assetForm, description: e.target.value})}
-                  rows={4}
-                  className="w-full px-6 py-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm resize-none transition-all font-medium text-lg"
-                  placeholder="Descrição detalhada do ativo..."
-                />
-              </div>
-              
-              <div className="flex justify-end gap-6 mt-12 pt-8 border-t border-slate-200">
-                <button
-                  onClick={() => {
-                    setShowAssetForm(false);
-                    setEditingAsset(null);
-                    setAssetForm({
-                      name: '',
-                      code: '',
-                      category: '',
-                      description: '',
-                      value: '',
-                      status: 'Ativo',
-                      floor_id: '',
-                      room_id: '',
-                      photo: '',
-                      supplier: '',
-                      serial_number: ''
-                    });
-                  }}
-                  className="px-10 py-5 border-2 border-slate-300 text-slate-700 rounded-2xl hover:bg-slate-100 transition-all font-bold text-lg"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleSaveAsset}
-                  disabled={loading}
-                  className="px-10 py-5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 disabled:from-slate-400 disabled:to-slate-400 text-white rounded-2xl font-bold text-lg shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all"
-                >
-                  {loading ? (
-                    <div className="flex items-center gap-4">
-                      <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      <span>Salvando...</span>
-                    </div>
-                  ) : (
-                    editingAsset ? 'Atualizar Ativo' : 'Salvar Ativo'
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Photo Modal */}
-      <PhotoModal
-        isOpen={photoHandler.showPhotoOptions}
-        onClose={photoHandler.closePhotoOptions}
-        videoRef={photoHandler.videoRef}
-        canvasRef={photoHandler.canvasRef}
-        fileInputRef={photoHandler.fileInputRef}
-        isCapturing={photoHandler.isCapturing}
-        onStartCamera={photoHandler.startCamera}
-        onCapturePhoto={photoHandler.capturePhoto}
-        onFileUpload={photoHandler.handleFileUpload}
-      />
-
-      {/* Excel Import Modals */}
-      <ImportLoadingModal
-        isOpen={excelImport.isImporting && !excelImport.showMappingModal}
-        progress={excelImport.importProgress}
-      />
-
-      <ColumnMappingModal
-        isOpen={excelImport.showMappingModal}
-        onClose={excelImport.closeModals}
-        excelData={excelImport.excelData}
-        columnMapping={excelImport.columnMapping}
-        setColumnMapping={excelImport.setColumnMapping}
-        onConfirm={() => excelImport.processImport(floors)}
-        isProcessing={excelImport.isImporting}
-      />
-
-      <ExcelImportModal
-        isOpen={excelImport.showImportModal}
-        onClose={excelImport.closeModals}
-        importResults={excelImport.importResults}
-        onTryAgain={() => {
-          excelImport.closeModals();
-          excelImport.openFileDialog();
-        }}
-      />
-
-      {/* Enhanced Asset Detail Modal */}
-      {showAssetDetail && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xl flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl w-full max-w-6xl max-h-[95vh] overflow-y-auto shadow-2xl border border-white/20">
-            <div className="p-10">
-              <div className="flex justify-between items-center mb-10">
-                <div>
-                  <h3 className="text-4xl font-black text-slate-900 mb-4">
-                    Detalhes do Ativo
-                  </h3>
-                  <p className="text-slate-600 text-lg font-medium">Informações completas do ativo</p>
-                </div>
-                <button
-                  onClick={() => setShowAssetDetail(null)}
-                  className="p-4 hover:bg-slate-100 rounded-2xl transition-all"
-                >
-                  <Icons.X />
-                </button>
-              </div>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                <div className="space-y-8">
-                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 p-8 rounded-3xl border-2 border-indigo-100 shadow-lg">
-                    <label className="block text-sm font-black text-indigo-700 mb-3">Nome</label>
-                    <p className="text-2xl font-black text-indigo-900">{showAssetDetail.name}</p>
-                  </div>
-                  
-                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-8 rounded-3xl border-2 border-purple-100 shadow-lg">
-                    <label className="block text-sm font-black text-purple-700 mb-3">Código</label>
-                    <p className="text-xl font-mono font-black text-purple-900 bg-white/80 px-4 py-3 rounded-2xl inline-block shadow-inner">
-                      {showAssetDetail.code}
-                    </p>
-                  </div>
-                  
-                  <div className="bg-gradient-to-r from-emerald-50 to-teal-50 p-8 rounded-3xl border-2 border-emerald-100 shadow-lg">
-                    <label className="block text-sm font-black text-emerald-700 mb-4">Categoria</label>
-                    <span className="inline-block px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-2xl text-sm font-bold shadow-lg">
-                      {showAssetDetail.category || 'Sem categoria'}
-                    </span>
-                  </div>
-                  
-                  <div className="bg-gradient-to-r from-orange-50 to-red-50 p-8 rounded-3xl border-2 border-orange-100 shadow-lg">
-                    <label className="block text-sm font-black text-orange-700 mb-4">Status</label>
-                    <StatusBadge status={showAssetDetail.status} />
-                  </div>
-                  
-                  <div className="bg-gradient-to-r from-slate-50 to-slate-100 p-8 rounded-3xl border-2 border-slate-100 shadow-lg">
-                    <label className="block text-sm font-black text-slate-700 mb-3">Localização</label>
-                    <div className="flex items-center gap-4 text-slate-900">
-                      <div className="w-10 h-10 bg-gradient-to-br from-slate-500 to-slate-600 rounded-2xl flex items-center justify-center">
-                        <Icons.MapPin />
-                      </div>
-                      <p className="font-black text-xl">{getFloorName(showAssetDetail.floor_id)}</p>
-                    </div>
-                  </div>
-                  
-                  {showAssetDetail.value && (
-                    <div className="bg-gradient-to-r from-amber-50 to-yellow-50 p-8 rounded-3xl border-2 border-amber-100 shadow-lg">
-                      <label className="block text-sm font-black text-amber-700 mb-3">Valor</label>
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-2xl flex items-center justify-center">
-                          <Icons.DollarSign />
-                        </div>
-                        <p className="text-2xl font-black text-amber-900">
-                          R$ {parseFloat(showAssetDetail.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="space-y-8">
-                  <div>
-                    <label className="block text-sm font-black text-slate-700 mb-6">Foto do Ativo</label>
-                    <div className="w-full h-96 bg-gradient-to-br from-slate-100 to-slate-200 rounded-3xl overflow-hidden border-4 border-white shadow-2xl">
-                      {showAssetDetail.photo ? (
-                        <img 
-                          src={showAssetDetail.photo} 
-                          alt={showAssetDetail.name} 
-                          className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <div className="text-center">
-                            <div className="w-20 h-20 bg-slate-400 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                              <Icons.Camera />
-                            </div>
-                            <span className="text-slate-600 font-bold text-lg">Nenhuma foto disponível</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {showAssetDetail.description && (
-                    <div className="bg-gradient-to-r from-slate-50 to-slate-100 p-8 rounded-3xl border-2 border-slate-200 shadow-lg">
-                      <label className="block text-sm font-black text-slate-700 mb-4">Descrição</label>
-                      <p className="text-slate-900 leading-relaxed font-medium text-lg">{showAssetDetail.description}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              <div className="flex justify-end gap-6 mt-12 pt-8 border-t border-slate-200">
-                <button
-                  onClick={() => {
-                    setShowAssetDetail(null);
-                    handleEditAsset(showAssetDetail);
-                  }}
-                  className="px-10 py-5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white rounded-2xl font-bold text-lg shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all"
-                >
-                  Editar Ativo
-                </button>
-                <button
-                  onClick={() => setShowAssetDetail(null)}
-                  className="px-10 py-5 border-2 border-slate-300 text-slate-700 rounded-2xl hover:bg-slate-100 transition-all font-bold text-lg"
-                >
-                  Fechar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// =================== MAIN WRAPPER ===================
-const MainApp = () => {
-  const { user, loading, connectionError } = useAuth();
-  const [showAuthModal, setShowAuthModal] = useState(false);
-
-  useEffect(() => {
-    if (!loading && !user) setShowAuthModal(true);
-  }, [user, loading]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-24 h-24 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-8"></div>
-          <h2 className="text-4xl font-black text-slate-800 mb-4">Carregando Sistema</h2>
-          <p className="text-slate-600 text-lg">Conectando com o banco de dados...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (connectionError) {
-    return (
-      <div className="min-h-screen bg-red-50 flex items-center justify-center p-4">
-        <div className="bg-white p-10 rounded-3xl shadow-2xl text-center max-w-lg border border-red-200">
-          <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-8">
-            <span className="text-4xl">❌</span>
-          </div>
-          <h2 className="text-3xl font-black text-red-800 mb-6">Erro de Conexão</h2>
-          <p className="text-red-600 mb-8 text-lg leading-relaxed">{connectionError}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="w-full bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
-          >
-            Tentar Novamente
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <>
-        <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
-          <div className="text-center max-w-6xl">
-            <div className="w-48 h-48 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-3xl flex items-center justify-center mx-auto mb-16 shadow-2xl transform hover:scale-105 transition-transform">
-              <span className="text-8xl">📦</span>
-            </div>
-            <h1 className="text-7xl lg:text-8xl font-black bg-gradient-to-r from-slate-900 via-indigo-800 to-purple-800 bg-clip-text text-transparent mb-10">
-              Asset Manager Pro
-            </h1>
-            <p className="text-2xl lg:text-3xl text-slate-600 mb-20 font-medium max-w-4xl mx-auto">
-              A solução mais moderna e inteligente para gestão de ativos empresariais com tecnologia de ponta
-            </p>
-            <div className="flex flex-col sm:flex-row gap-8 justify-center mb-20">
-              <button 
-                onClick={() => setShowAuthModal(true)} 
-                className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white px-16 py-8 rounded-3xl text-2xl font-black shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all"
-              >
-                Começar Agora
-              </button>
-              <button className="bg-white/80 backdrop-blur-xl hover:bg-white text-slate-800 border-2 border-slate-200 hover:border-slate-300 px-16 py-8 rounded-3xl text-2xl font-black transition-all shadow-xl hover:shadow-2xl">
-                Ver Demonstração
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-              <div className="bg-white/80 backdrop-blur-xl p-10 rounded-3xl border border-slate-200 shadow-xl transform hover:scale-105 transition-all">
-                <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                  <Icons.Package />
-                </div>
-                <h3 className="text-2xl font-black text-slate-900 mb-4">Gestão Completa</h3>
-                <p className="text-slate-600 text-lg">Cadastre, organize e monitore todos os seus ativos em um só lugar com tecnologia avançada</p>
-              </div>
-              <div className="bg-white/80 backdrop-blur-xl p-10 rounded-3xl border border-slate-200 shadow-xl transform hover:scale-105 transition-all">
-                <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                  <Icons.Upload />
-                </div>
-                <h3 className="text-2xl font-black text-slate-900 mb-4">Importação Inteligente</h3>
-                <p className="text-slate-600 text-lg">Importe seus dados existentes facilmente através de planilhas Excel avançadas</p>
-              </div>
-              <div className="bg-white/80 backdrop-blur-xl p-10 rounded-3xl border border-slate-200 shadow-xl transform hover:scale-105 transition-all">
-                <div className="w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                  <Icons.BarChart />
-                </div>
-                <h3 className="text-2xl font-black text-slate-900 mb-4">Analytics Avançados</h3>
-                <p className="text-slate-600 text-lg">Visualize estatísticas detalhadas e gere insights poderosos sobre seu patrimônio</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
-      </>
-    );
-  }
-
-  return <App />;
-};
-
-// =================== ROOT COMPONENT ===================
-export default function AppRoot() {
-  return (
-    <AuthProvider>
-      <MainApp />
-    </AuthProvider>
-  );
-}) || lowerCol.includes('real')) {
-        if (!mapping.value) mapping.value = col;
-      }
-      
-      // Detectar fornecedor
-      if (lowerCol.includes('fornecedor') || lowerCol.includes('empresa') || lowerCol.includes('fabricante')) {
-        if (!mapping.supplier) mapping.supplier = col;
-      }
-      
-      // Detectar serial
-      if (lowerCol.includes('serie') || lowerCol.includes('série') || lowerCol.includes('serial') || 
-          lowerCol.includes('numero de serie') || lowerCol.includes('ns')) {
-        if (!mapping.serial_number) mapping.serial_number = col;
-      }
-      
-      // Detectar localização
-      if (lowerCol.includes('local') || lowerCol.includes('andar') || lowerCol.includes('sala') || 
-          lowerCol.includes('setor') || lowerCol.includes('departamento')) {
-        if (!mapping.location) mapping.location = col;
-      }
-    });
-    
-    return mapping;
-  };
-
-  const processImport = async (floors) => {
-    if (!excelData.length) return;
-
-    setIsImporting(true);
-    const results = {
-      success: 0,
-      errors: 0,
-      total: excelData.length,
-      errorDetails: []
-    };
-
-    for (let i = 0; i < excelData.length; i++) {
-      const row = excelData[i];
-      setImportProgress(Math.round((i / excelData.length) * 100));
-
-      try {
-        // Extrair dados baseado no mapeamento
-        const assetData = {
-          name: row[columnMapping.name] || `Ativo ${i + 1}`,
-          code: row[columnMapping.code] || `IMP-${Date.now()}-${i}`,
-          category: row[columnMapping.category] || '',
-          description: row[columnMapping.description] || '',
-          value: parseFloat(String(row[columnMapping.value] || '0').replace(/[^\d,.-]/g, '').replace(',', '.')) || null,
-          supplier: row[columnMapping.supplier] || '',
-          serial_number: row[columnMapping.serial_number] || '',
-          status: 'Ativo',
-          floor_id: findFloorId(row[columnMapping.location], floors),
-          room_id: null,
-          photo: ''
-        };
-
-        // Validar dados obrigatórios
-        if (!assetData.name.trim()) {
-          throw new Error('Nome é obrigatório');
-        }
-
-        if (!assetData.floor_id) {
-          // Usar primeiro andar como padrão
-          assetData.floor_id = floors[0]?.id;
-        }
-
-        // Aqui você chamaria a API para salvar
-        // const result = await databaseService.assets.create(assetData, user.team_id);
-        console.log('Asset a ser criado:', assetData);
-        
-        results.success++;
-      } catch (error) {
-        results.errors++;
-        results.errorDetails.push({
-          row: i + 1,
-          data: row,
-          error: error.message
-        });
-      }
-    }
-
-    setImportProgress(100);
-    setImportResults(results);
-    setIsImporting(false);
-    setShowMappingModal(false);
-    setShowImportModal(true);
-    
-    if (onImportComplete) {
-      onImportComplete(results);
-    }
-  };
-
-  const findFloorId = (locationText, floors) => {
-    if (!locationText || !floors.length) return floors[0]?.id;
-    
-    const location = locationText.toString().toLowerCase();
-    
-    // Tentar encontrar andar baseado no texto
-    for (const floor of floors) {
-      if (location.includes(floor.name.toLowerCase()) || 
-          location.includes(floor.description?.toLowerCase() || '')) {
-        return floor.id;
-      }
-    }
-    
-    // Procurar por números de andar
-    const floorNumber = location.match(/(\d+)(?:º|°|\s*andar)/);
-    if (floorNumber) {
-      const num = floorNumber[1];
-      const matchingFloor = floors.find(f => 
-        f.name.includes(num) || f.description?.includes(num)
-      );
-      if (matchingFloor) return matchingFloor.id;
-    }
-    
-    return floors[0]?.id; // Padrão: primeiro andar
-  };
-
-  const openFileDialog = () => {
-    fileInputRef.current?.click();
-  };
-
-  const closeModals = () => {
-    setShowImportModal(false);
-    setShowMappingModal(false);
-    setImportResults(null);
-    setExcelData([]);
-    setColumnMapping({});
-    setImportProgress(0);
-  };
-
-  return {
-    fileInputRef,
-    isImporting,
-    importProgress,
-    importResults,
-    showImportModal,
-    showMappingModal,
-    excelData,
-    columnMapping,
-    setColumnMapping,
-    handleFileUpload,
-    processImport,
-    openFileDialog,
-    closeModals
-  };
-};
-
-// =================== EXCEL IMPORT MODALS ===================
-const ExcelImportModal = ({
-  isOpen,
-  onClose,
-  importResults,
-  onTryAgain
-}) => {
-  if (!isOpen || !importResults) return null;
-
-  return (
-    <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl flex items-center justify-center p-4 z-[60]">
-      <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl border border-white/20">
-        <div className="p-8">
-          <div className="text-center mb-8">
-            <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 ${
-              importResults.errors === 0 ? 'bg-emerald-100' : 'bg-amber-100'
-            }`}>
-              {importResults.errors === 0 ? (
-                <span className="text-4xl">✅</span>
-              ) : (
-                <span className="text-4xl">⚠️</span>
-              )}
-            </div>
-            <h3 className="text-3xl font-black text-slate-900 mb-2">
-              Importação Concluída
-            </h3>
-          </div>
-
-          <div className="bg-slate-50 rounded-2xl p-6 mb-8">
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <p className="text-2xl font-black text-slate-900">{importResults.total}</p>
-                <p className="text-sm text-slate-600 font-bold">Total</p>
-              </div>
-              <div>
-                <p className="text-2xl font-black text-emerald-600">{importResults.success}</p>
-                <p className="text-sm text-slate-600 font-bold">Sucesso</p>
-              </div>
-              <div>
-                <p className="text-2xl font-black text-red-600">{importResults.errors}</p>
-                <p className="text-sm text-slate-600 font-bold">Erros</p>
-              </div>
-            </div>
-          </div>
-
-          {importResults.errorDetails.length > 0 && (
-            <div className="max-h-40 overflow-y-auto bg-red-50 rounded-2xl p-4 mb-6">
-              <h4 className="font-bold text-red-800 mb-3">Detalhes dos Erros:</h4>
-              {importResults.errorDetails.slice(0, 5).map((error, index) => (
-                <p key={index} className="text-sm text-red-700 mb-1">
-                  Linha {error.row}: {error.error}
-                </p>
-              ))}
-              {importResults.errorDetails.length > 5 && (
-                <p className="text-sm text-red-600 font-bold">
-                  ... e mais {importResults.errorDetails.length - 5} erros
-                </p>
-              )}
-            </div>
-          )}
-
-          <div className="flex gap-4">
-            {importResults.errors > 0 && (
-              <button
-                onClick={onTryAgain}
-                className="flex-1 bg-amber-600 hover:bg-amber-700 text-white px-6 py-4 rounded-2xl font-bold transition-all shadow-lg hover:shadow-xl"
-              >
-                Tentar Novamente
-              </button>
-            )}
-            <button
-              onClick={onClose}
-              className="flex-1 bg-slate-600 hover:bg-slate-700 text-white px-6 py-4 rounded-2xl font-bold transition-all shadow-lg hover:shadow-xl"
-            >
-              Fechar
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const ColumnMappingModal = ({
-  isOpen,
-  onClose,
-  excelData,
-  columnMapping,
-  setColumnMapping,
-  onConfirm,
-  isProcessing
-}) => {
-  if (!isOpen || !excelData.length) return null;
-
-  const availableColumns = Object.keys(excelData[0]);
-  const targetFields = [
-    { key: 'name', label: 'Nome do Ativo *', required: true },
-    { key: 'code', label: 'Código', required: false },
-    { key: 'category', label: 'Categoria', required: false },
-    { key: 'value', label: 'Valor', required: false },
-    { key: 'supplier', label: 'Fornecedor', required: false },
-    { key: 'serial_number', label: 'Número de Série', required: false },
-    { key: 'location', label: 'Localização', required: false },
-    { key: 'description', label: 'Descrição', required: false }
-  ];
-
-  return (
-    <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl flex items-center justify-center p-4 z-[60]">
-      <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl border border-white/20">
-        <div className="p-8">
-          <div className="mb-8">
-            <h3 className="text-3xl font-black text-slate-900 mb-4">Mapear Colunas</h3>
-            <p className="text-slate-600 text-lg">Associe as colunas do Excel com os campos do sistema:</p>
-          </div>
-
-          {/* Preview dos dados */}
-          <div className="bg-slate-50 rounded-2xl p-6 mb-8">
-            <h4 className="font-bold text-slate-900 mb-4">Preview dos Dados (primeiras 3 linhas):</h4>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200">
-                    {availableColumns.map(col => (
-                      <th key={col} className="text-left p-2 font-bold text-slate-700">{col}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {excelData.slice(0, 3).map((row, index) => (
-                    <tr key={index} className="border-b border-slate-100">
-                      {availableColumns.map(col => (
-                        <td key={col} className="p-2 text-slate-600 truncate max-w-32">
-                          {String(row[col] || '').substring(0, 50)}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Mapeamento */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {targetFields.map(field => (
-              <div key={field.key}>
-                <label className="block text-sm font-bold text-slate-700 mb-3">
-                  {field.label}
-                  {field.required && <span className="text-red-500 ml-1">*</span>}
-                </label>
-                <select
-                  value={columnMapping[field.key] || ''}
-                  onChange={(e) => setColumnMapping({
-                    ...columnMapping,
-                    [field.key]: e.target.value
-                  })}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white transition-all"
-                >
-                  <option value="">Selecionar coluna...</option>
-                  {availableColumns.map(col => (
-                    <option key={col} value={col}>{col}</option>
-                  ))}
-                </select>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex justify-end gap-4">
-            <button
-              onClick={onClose}
-              className="px-8 py-4 border-2 border-slate-300 text-slate-700 rounded-2xl hover:bg-slate-100 transition-all font-bold"
-              disabled={isProcessing}
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={onConfirm}
-              disabled={!columnMapping.name || isProcessing}
-              className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:from-slate-400 disabled:to-slate-400 text-white rounded-2xl font-bold shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all"
-            >
-              {isProcessing ? (
-                <div className="flex items-center gap-3">
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span>Importando...</span>
-                </div>
-              ) : (
-                'Importar Ativos'
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Loading Modal para Import
-const ImportLoadingModal = ({ isOpen, progress }) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl flex items-center justify-center z-[70]">
-      <div className="bg-white rounded-3xl p-10 text-center shadow-2xl border border-white/20">
-        <div className="w-20 h-20 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-6"></div>
-        <h3 className="text-2xl font-bold text-slate-900 mb-4">Processando Arquivo Excel</h3>
-        <p className="text-slate-600 font-medium mb-6">Aguarde enquanto analisamos os dados...</p>
-        
-        <div className="w-full bg-slate-200 rounded-full h-3 mb-4">
-          <div 
-            className="bg-gradient-to-r from-indigo-500 to-purple-500 h-3 rounded-full transition-all duration-300"
-            style={{ width: `${progress}%` }}
-          ></div>
-        </div>
-        <p className="text-sm text-slate-500 font-medium">{progress}% concluído</p>
-      </div>
-    </div>
-  );
-};
-
-  const categories = ['Informática', 'Móveis', 'Equipamentos', 'Veículos', 'Eletrônicos', 'Outros'];
-  const statuses = ['Ativo', 'Inativo', 'Manutenção', 'Descartado'];
-
-  // Load data
-  useEffect(() => {
-    if (user?.team_id) {
-      loadAssets();
-      loadFloors();
-    }
-  }, [user]);
-
-  // Filter assets
-  useEffect(() => {
-    let filtered = assets;
-    
-    if (searchTerm) {
-      filtered = filtered.filter(a => 
-        a.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        a.code.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    
-    if (selectedFloor) filtered = filtered.filter(a => a.floor_id == selectedFloor);
-    if (selectedCategory) filtered = filtered.filter(a => a.category === selectedCategory);
-    if (selectedStatus) filtered = filtered.filter(a => a.status === selectedStatus);
-    
-    setFilteredAssets(filtered);
-  }, [assets, searchTerm, selectedFloor, selectedCategory, selectedStatus]);
-
-  const loadAssets = async () => {
-    setLoading(true);
-    const result = await databaseService.assets.getAll(user.team_id);
-    if (result.success) {
-      setAssets(result.data);
-      setFilteredAssets(result.data);
-    }
-    setLoading(false);
-  };
-
-  const loadFloors = async () => {
-    const result = await databaseService.floors.getAll(user.team_id);
-    if (result.success) {
-      setFloors(result.data);
-    }
-  };
-
-  const handleSaveAsset = async () => {
-    if (!assetForm.name || !assetForm.code || !assetForm.floor_id) {
-      alert('Nome, código e andar são obrigatórios');
-      return;
-    }
-
-    setLoading(true);
-    const assetData = { ...assetForm, value: assetForm.value ? parseFloat(assetForm.value) : null };
-    
-    const result = editingAsset ? 
-      await databaseService.assets.update(editingAsset.id, assetData, user.team_id) :
-      await databaseService.assets.create(assetData, user.team_id);
-
-    if (result.success) {
-      setShowAssetForm(false);
-      setEditingAsset(null);
-      setAssetForm({
-        name: '',
-        code: '',
-        category: '',
-        description: '',
-        value: '',
-        status: 'Ativo',
-        floor_id: '',
-        room_id: '',
-        photo: '',
-        supplier: '',
-        serial_number: ''
-      });
-      await loadAssets();
-    } else {
-      alert('Erro: ' + result.error);
-    }
-    setLoading(false);
-  };
-
-  const handleEditAsset = (asset) => {
-    setEditingAsset(asset);
-    setAssetForm({
-      name: asset.name,
-      code: asset.code,
-      category: asset.category || '',
-      description: asset.description || '',
-      value: asset.value || '',
-      status: asset.status,
-      floor_id: asset.floor_id,
-      room_id: asset.room_id || '',
-      photo: asset.photo || '',
-      supplier: asset.supplier || '',
-      serial_number: asset.serial_number || ''
-    });
-    setShowAssetForm(true);
-    setShowAssetDetail(null);
-  };
-
-  const handleDeleteAsset = async (asset) => {
-    if (confirm(`Tem certeza que deseja excluir o ativo "${asset.name}"?`)) {
-      const result = await databaseService.assets.delete(asset.id, user.team_id);
-      if (result.success) {
-        await loadAssets();
-      } else {
-        alert('Erro ao excluir: ' + result.error);
-      }
-    }
-  };
-
-  const getFloorName = (floorId) => floors.find(f => f.id === floorId)?.name || 'N/A';
-  const getRoomsForFloor = (floorId) => floors.find(f => f.id == floorId)?.rooms || [];
-
-  // Calculate stats
-  const stats = {
-    totalAssets: assets.length,
-    activeAssets: assets.filter(a => a.status === 'Ativo').length,
-    totalValue: assets.reduce((sum, a) => sum + (parseFloat(a.value) || 0), 0),
-    categories: [...new Set(assets.map(a => a.category).filter(Boolean))].length,
-    recentAssets: assets.slice(0, 5)
-  };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50">
-      {/* Modern Header */}
-      <header className="bg-white/80 backdrop-blur-xl border-b border-white/20 sticky top-0 z-40 shadow-lg">
-        <div className="container mx-auto px-6 py-6">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="flex items-center gap-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-3xl flex items-center justify-center shadow-2xl transform hover:scale-105 transition-all">
-                <Icons.Package />
-              </div>
-              <div>
-                <h1 className="text-4xl font-black bg-gradient-to-r from-slate-900 via-indigo-800 to-purple-800 bg-clip-text text-transparent">
-                  Asset Manager Pro
-                </h1>
-                <p className="text-slate-600 font-medium text-lg">
-                  {user?.team_name && `Time: ${user.team_name}`} • Sistema Inteligente de Ativos
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-4 bg-gradient-to-r from-indigo-50 to-purple-50 px-6 py-4 rounded-2xl border border-indigo-200">
-                <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                  {user?.name?.charAt(0)}
-                </div>
-                <div>
-                  <p className="font-bold text-slate-900">{user?.name}</p>
-                  <p className="text-sm text-slate-600">{user?.email}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="container mx-auto px-6 py-8">
-        {/* Modern Navigation */}
-        <nav className="bg-white/90 backdrop-blur-xl rounded-3xl p-3 mb-8 shadow-2xl border border-white/20">
-          <div className="flex gap-3">
-            {[
-              { key: 'dashboard', label: 'Dashboard', icon: Icons.Dashboard, color: 'from-indigo-600 to-purple-600', count: null },
-              { key: 'assets', label: 'Ativos', icon: Icons.Archive, color: 'from-emerald-600 to-teal-600', count: filteredAssets.length },
-              { key: 'locations', label: 'Localizações', icon: Icons.Building, color: 'from-amber-600 to-orange-600', count: floors.length }
-            ].map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex-1 px-8 py-5 rounded-2xl font-bold transition-all duration-300 flex items-center justify-center gap-3 text-lg ${
-                  activeTab === tab.key 
-                    ? `bg-gradient-to-r ${tab.color} text-white shadow-xl transform scale-105` 
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800 hover:scale-102'
-                }`}
-              >
-                <tab.icon />
-                <span>{tab.label}</span>
-                {tab.count !== null && (
-                  <span className={`px-3 py-1 rounded-full text-sm font-black ${
-                    activeTab === tab.key ? 'bg-white/20' : 'bg-slate-200 text-slate-600'
-                  }`}>
-                    {tab.count}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </nav>
-
-        {/* Dashboard */}
-        {activeTab === 'dashboard' && (
-          <div className="space-y-8">
-            {/* Enhanced Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-600 text-white p-8 rounded-3xl shadow-2xl transform hover:scale-105 transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-indigo-100 text-sm font-bold uppercase tracking-wider">Total de Ativos</p>
-                    <p className="text-5xl font-black mt-3">{stats.totalAssets}</p>
-                    <div className="flex items-center gap-2 mt-3">
-                      <Icons.TrendingUp />
-                      <p className="text-indigo-200 text-sm">+12% este mês</p>
-                    </div>
-                  </div>
-                  <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center">
-                    <Icons.Archive />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-emerald-500 via-green-500 to-teal-600 text-white p-8 rounded-3xl shadow-2xl transform hover:scale-105 transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-green-100 text-sm font-bold uppercase tracking-wider">Ativos Ativos</p>
-                    <p className="text-5xl font-black mt-3">{stats.activeAssets}</p>
-                    <div className="flex items-center gap-2 mt-3">
-                      <Icons.Activity />
-                      <p className="text-green-200 text-sm">{((stats.activeAssets / stats.totalAssets) * 100 || 0).toFixed(0)}% do total</p>
-                    </div>
-                  </div>
-                  <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center">
-                    <Icons.Zap />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 text-white p-8 rounded-3xl shadow-2xl transform hover:scale-105 transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-orange-100 text-sm font-bold uppercase tracking-wider">Valor Total</p>
-                    <p className="text-3xl font-black mt-3">R$ {stats.totalValue.toLocaleString('pt-BR')}</p>
-                    <div className="flex items-center gap-2 mt-3">
-                      <Icons.Award />
-                      <p className="text-orange-200 text-sm">Patrimônio registrado</p>
-                    </div>
-                  </div>
-                  <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center">
-                    <Icons.DollarSign />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500 text-white p-8 rounded-3xl shadow-2xl transform hover:scale-105 transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-purple-100 text-sm font-bold uppercase tracking-wider">Categorias</p>
-                    <p className="text-5xl font-black mt-3">{stats.categories}</p>
-                    <div className="flex items-center gap-2 mt-3">
-                      <Icons.Star />
-                      <p className="text-purple-200 text-sm">Diferentes tipos</p>
-                    </div>
-                  </div>
-                  <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center">
-                    <Icons.Layers />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Enhanced Charts Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20">
-                <h3 className="text-2xl font-black text-slate-900 mb-8 flex items-center gap-4">
-                  <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-2xl flex items-center justify-center">
-                    <Icons.BarChart />
-                  </div>
-                  Distribuição por Status
-                </h3>
-                <div className="space-y-6">
-                  {statuses.map(status => {
-                    const count = assets.filter(a => a.status === status).length;
-                    const percentage = stats.totalAssets > 0 ? (count / stats.totalAssets * 100).toFixed(1) : 0;
-                    return (
-                      <div key={status} className="flex items-center justify-between p-6 bg-gradient-to-r from-slate-50 to-slate-100 rounded-2xl hover:from-slate-100 hover:to-slate-200 transition-all duration-300 transform hover:scale-105">
-                        <div className="flex items-center gap-4">
-                          <StatusBadge status={status} />
-                          <span className="font-bold text-slate-900 text-lg">{count} ativos</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-2xl font-black text-slate-900">{percentage}%</span>
-                          <div className="w-32 h-3 bg-slate-200 rounded-full mt-2">
-                            <div 
-                              className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-1000"
-                              style={{ width: `${percentage}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20">
-                <h3 className="text-2xl font-black text-slate-900 mb-8 flex items-center gap-4">
-                  <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center">
-                    <Icons.Clock />
-                  </div>
-                  Últimos Ativos Cadastrados
-                </h3>
-                <div className="space-y-4">
-                  {stats.recentAssets.map(asset => (
-                    <div 
-                      key={asset.id} 
-                      className="flex items-center gap-4 p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-2xl hover:from-slate-100 hover:to-slate-200 cursor-pointer transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
-                      onClick={() => setShowAssetDetail(asset)}
-                    >
-                      <div className="w-16 h-16 bg-gradient-to-br from-slate-200 to-slate-300 rounded-2xl overflow-hidden flex-shrink-0 shadow-lg">
-                        {asset.photo ? (
-                          <img src={asset.photo} alt={asset.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Icons.Package />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-bold text-slate-900 truncate text-lg">{asset.name}</p>
-                        <p className="text-sm text-slate-600 font-medium">{asset.code} • {getFloorName(asset.floor_id)}</p>
-                      </div>
-                      <StatusBadge status={asset.status} />
-                    </div>
-                  ))}
-                  {stats.recentAssets.length === 0 && (
-                    <div className="text-center py-16 bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl">
-                      <div className="w-20 h-20 bg-gradient-to-br from-slate-300 to-slate-400 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                        <Icons.Package />
-                      </div>
-                      <p className="text-xl font-bold text-slate-900 mb-4">Nenhum ativo cadastrado ainda</p>
-                      <button
-                        onClick={() => {
-                          setActiveTab('assets');
-                          setShowAssetForm(true);
-                        }}
-                        className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
-                      >
-                        Cadastrar Primeiro Ativo
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Enhanced Assets Section */}
-        {activeTab === 'assets' && (
-          <div className="space-y-8">
-            {/* Modern Controls */}
-            <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
-                <div className="flex flex-col sm:flex-row gap-6">
-                  <button
-                    onClick={() => setShowAssetForm(true)}
-                    className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white px-8 py-5 rounded-2xl flex items-center gap-4 font-bold text-lg shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all"
-                  >
-                    <Icons.Plus />
-                    Novo Ativo
-                  </button>
-                  <button className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-8 py-5 rounded-2xl flex items-center gap-4 font-bold text-lg shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all">
-                    <Icons.Upload />
-                    Importar Excel
-                  </button>
-                </div>
-                
-                <div className="flex items-center gap-8">
-                  <div className="text-center bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-2xl">
-                    <p className="text-4xl font-black text-slate-900">{filteredAssets.length}</p>
-                    <p className="text-sm text-slate-600 font-bold">Ativos encontrados</p>
-                  </div>
-                  
-                  <div className="flex bg-slate-100 rounded-2xl p-2 shadow-inner">
-                    <button
-                      onClick={() => setViewMode('grid')}
-                      className={`p-4 rounded-xl transition-all ${viewMode === 'grid' ? 'bg-white shadow-lg text-indigo-600' : 'hover:bg-slate-200 text-slate-600'}`}
-                    >
-                      <Icons.Grid />
-                    </button>
-                    <button
-                      onClick={() => setViewMode('list')}
-                      className={`p-4 rounded-xl transition-all ${viewMode === 'list' ? 'bg-white shadow-lg text-indigo-600' : 'hover:bg-slate-200 text-slate-600'}`}
-                    >
-                      <Icons.List />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Enhanced Filters */}
-              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
-                <div className="relative lg:col-span-2">
-                  <Icons.Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Buscar ativos..."
-                    className="w-full pl-12 pr-4 py-4 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium"
-                  />
-                </div>
-                
-                <select
-                  value={selectedFloor}
-                  onChange={(e) => setSelectedFloor(e.target.value)}
-                  className="px-4 py-4 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium"
-                >
-                  <option value="">Todos os andares</option>
-                  {floors.map(f => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
-                  ))}
-                </select>
-                
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="px-4 py-4 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium"
-                >
-                  <option value="">Todas as categorias</option>
-                  {categories.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-
-                <select
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="px-4 py-4 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium"
-                >
-                  <option value="">Todos os status</option>
-                  {statuses.map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-                
-                <button
-                  onClick={() => {
-                    setSearchTerm('');
-                    setSelectedFloor('');
-                    setSelectedCategory('');
-                    setSelectedStatus('');
-                  }}
-                  className="px-4 py-4 border-2 border-slate-300 rounded-2xl hover:bg-slate-100 font-bold transition-all flex items-center justify-center gap-3 text-slate-700 hover:border-slate-400"
-                >
-                  <Icons.Filter />
-                  Limpar
-                </button>
-              </div>
-            </div>
-
-            {/* Assets Grid/List */}
-            {loading ? (
-              <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20">
-                <LoadingSpinner size="lg" text="Carregando ativos..." />
-              </div>
-            ) : (
-              <>
-                {filteredAssets.length === 0 ? (
-                  <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-20 shadow-2xl border border-white/20 text-center">
-                    <div className="w-32 h-32 bg-gradient-to-br from-slate-200 to-slate-300 rounded-3xl flex items-center justify-center mx-auto mb-8">
-                      <Icons.Package />
-                    </div>
-                    <h3 className="text-3xl font-black text-slate-900 mb-6">
-                      {searchTerm || selectedFloor || selectedCategory || selectedStatus 
-                        ? 'Nenhum ativo encontrado' 
-                        : 'Nenhum ativo cadastrado'
-                      }
-                    </h3>
-                    <p className="text-slate-600 mb-10 max-w-md mx-auto text-lg">
-                      {searchTerm || selectedFloor || selectedCategory || selectedStatus
-                        ? 'Tente ajustar os filtros para encontrar outros ativos'
-                        : 'Comece cadastrando seu primeiro ativo no sistema'
-                      }
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-6 justify-center">
-                      <button
-                        onClick={() => setShowAssetForm(true)}
-                        className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white px-10 py-5 rounded-2xl font-bold text-lg shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all"
-                      >
-                        Cadastrar Primeiro Ativo
-                      </button>
-                      {(searchTerm || selectedFloor || selectedCategory || selectedStatus) && (
-                        <button
-                          onClick={() => {
-                            setSearchTerm('');
-                            setSelectedFloor('');
-                            setSelectedCategory('');
-                            setSelectedStatus('');
-                          }}
-                          className="bg-slate-600 hover:bg-slate-700 text-white px-10 py-5 rounded-2xl font-bold text-lg transition-all shadow-lg hover:shadow-xl"
-                        >
-                          Limpar Filtros
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className={viewMode === 'grid' 
-                    ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8" 
-                    : "space-y-6"
-                  }>
-                    {filteredAssets.map(asset => (
-                      viewMode === 'grid' ? (
-                        <AssetCard
-                          key={asset.id}
-                          asset={asset}
-                          onView={setShowAssetDetail}
-                          onEdit={handleEditAsset}
-                          onDelete={handleDeleteAsset}
-                          getFloorName={getFloorName}
-                        />
-                      ) : (
-                        <div key={asset.id} className="bg-white rounded-3xl shadow-xl hover:shadow-2xl transition-all p-8 border border-slate-200 transform hover:-translate-y-1">
-                          <div className="flex items-center gap-8">
-                            <div className="w-24 h-24 bg-gradient-to-br from-slate-100 to-slate-200 rounded-3xl overflow-hidden flex-shrink-0 shadow-lg">
-                              {asset.photo ? (
-                                <img src={asset.photo} alt={asset.name} className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <Icons.Package />
-                                </div>
-                              )}
-                            </div>
-                            
-                            <div className="flex-1">
-                              <div className="flex items-start justify-between mb-4">
-                                <div>
-                                  <h3 className="text-2xl font-black text-slate-900 mb-2">{asset.name}</h3>
-                                  <p className="text-sm font-mono text-slate-600 bg-slate-100 px-3 py-1 rounded-lg inline-block">{asset.code}</p>
-                                </div>
-                                <StatusBadge status={asset.status} />
-                              </div>
-                              
-                              <div className="flex items-center gap-8 text-sm text-slate-600">
-                                {asset.category && (
-                                  <span className="flex items-center gap-2 font-medium">
-                                    <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                                      <Icons.Layers />
-                                    </div>
-                                    {asset.category}
-                                  </span>
-                                )}
-                                <span className="flex items-center gap-2 font-medium">
-                                  <div className="w-6 h-6 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
-                                    <Icons.MapPin />
-                                  </div>
-                                  {getFloorName(asset.floor_id)}
-                                </span>
-                                {asset.value && (
-                                  <span className="flex items-center gap-2 text-green-700 font-bold">
-                                    <div className="w-6 h-6 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
-                                      <Icons.DollarSign />
-                                    </div>
-                                    R$ {parseFloat(asset.value).toLocaleString('pt-BR')}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            
-                            <div className="flex gap-3">
-                              <button
-                                onClick={() => setShowAssetDetail(asset)}
-                                className="bg-slate-100 hover:bg-slate-200 text-slate-700 p-4 rounded-2xl transition-all shadow-lg hover:shadow-xl"
-                              >
-                                <Icons.Eye />
-                              </button>
-                              <button
-                                onClick={() => handleEditAsset(asset)}
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-2xl transition-all shadow-lg hover:shadow-xl"
-                              >
-                                <Icons.Edit />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteAsset(asset)}
-                                className="bg-red-600 hover:bg-red-700 text-white p-4 rounded-2xl transition-all shadow-lg hover:shadow-xl"
-                              >
-                                <Icons.Trash />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Enhanced Locations */}
-        {activeTab === 'locations' && (
-          <div className="space-y-8">
-            <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20">
-              <div className="flex justify-between items-center mb-10">
-                <div>
-                  <h2 className="text-3xl font-black text-slate-900 flex items-center gap-4 mb-2">
-                    <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center">
-                      <Icons.Building />
-                    </div>
-                    Localizações Cadastradas
-                  </h2>
-                  <p className="text-slate-600 text-lg">Gerencie os andares e salas da sua empresa</p>
-                </div>
-                <button className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white px-8 py-5 rounded-2xl font-bold text-lg flex items-center gap-4 shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all">
-                  <Icons.Plus />
-                  Novo Andar
-                </button>
-              </div>
-              
-              {floors.length === 0 ? (
-                <div className="text-center py-20">
-                  <div className="w-32 h-32 bg-gradient-to-br from-amber-200 to-orange-300 rounded-3xl flex items-center justify-center mx-auto mb-8">
-                    <Icons.Building />
-                  </div>
-                  <h3 className="text-3xl font-black text-slate-900 mb-6">Nenhuma localização cadastrada</h3>
-                  <p className="text-slate-600 mb-10 text-lg">Comece cadastrando os andares e salas da sua empresa</p>
-                  <button className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white px-10 py-5 rounded-2xl font-bold text-lg shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all">
-                    Cadastrar Primeiro Andar
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-                  {floors.map(floor => (
-                    <div key={floor.id} className="bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 p-8 rounded-3xl border border-amber-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-                      <div className="flex justify-between items-start mb-6">
-                        <div>
-                          <h3 className="text-2xl font-black text-amber-900 mb-2">{floor.name}</h3>
-                          {floor.description && (
-                            <p className="text-amber-700 font-medium">{floor.description}</p>
-                          )}
-                        </div>
-                        <div className="flex gap-2">
-                          <button className="bg-amber-600 hover:bg-amber-700 text-white p-3 rounded-2xl transition-all shadow-lg hover:shadow-xl">
-                            <Icons.Edit />
-                          </button>
-                          <button className="bg-red-600 hover:bg-red-700 text-white p-3 rounded-2xl transition-all shadow-lg hover:shadow-xl">
-                            <Icons.Trash />
-                          </button>
-                        </div>
-                      </div>
-                      
-                      {floor.rooms && floor.rooms.length > 0 ? (
-                        <>
-                          <div className="mb-6">
-                            <p className="text-sm text-amber-700 font-bold bg-amber-100 px-4 py-2 rounded-xl inline-block">
-                              {floor.rooms.length} sala{floor.rooms.length !== 1 ? 's' : ''} cadastrada{floor.rooms.length !== 1 ? 's' : ''}
-                            </p>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            {floor.rooms.map(room => (
-                              <div key={room.id} className="bg-white/90 p-5 rounded-2xl border border-amber-200 hover:bg-white transition-all transform hover:scale-105 shadow-lg">
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <h4 className="font-bold text-amber-900 mb-1">{room.name}</h4>
-                                    {room.description && (
-                                      <p className="text-xs text-amber-600 font-medium">{room.description}</p>
-                                    )}
-                                  </div>
-                                  <button className="text-amber-600 hover:text-amber-700 p-2 hover:bg-amber-100 rounded-xl transition-all">
-                                    <Icons.Edit />
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      ) : (
-                        <div className="text-center py-8">
-                          <p className="text-amber-600 font-medium mb-4">Nenhuma sala cadastrada</p>
-                          <button className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-lg hover:shadow-xl">
-                            + Adicionar Sala
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Enhanced Asset Form Modal */}
-      {showAssetForm && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xl flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl w-full max-w-6xl max-h-[95vh] overflow-y-auto shadow-2xl border border-white/20">
-            <div className="p-10">
-              <div className="flex justify-between items-center mb-10">
-                <div>
-                  <h3 className="text-4xl font-black text-slate-900 mb-4">
-                    {editingAsset ? 'Editar Ativo' : 'Novo Ativo'}
-                  </h3>
-                  <p className="text-slate-600 text-lg font-medium">
-                    {editingAsset ? 'Atualize as informações do ativo' : 'Cadastre um novo ativo no sistema'}
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowAssetForm(false);
-                    setEditingAsset(null);
-                    setAssetForm({
-                      name: '',
-                      code: '',
-                      category: '',
-                      description: '',
-                      value: '',
-                      status: 'Ativo',
-                      floor_id: '',
-                      room_id: '',
-                      photo: '',
-                      supplier: '',
-                      serial_number: ''
-                    });
-                  }}
-                  className="p-4 hover:bg-slate-100 rounded-2xl transition-all"
-                >
-                  <Icons.X />
-                </button>
-              </div>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                <div className="space-y-8">
-                  <div>
-                    <label className="block text-sm font-black text-slate-700 mb-4">Nome do Ativo *</label>
-                    <input
-                      type="text"
-                      value={assetForm.name}
-                      onChange={(e) => setAssetForm({...assetForm, name: e.target.value})}
-                      className="w-full px-6 py-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium text-lg"
-                      placeholder="Ex: Notebook Dell Inspiron 15"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-black text-slate-700 mb-4">Código *</label>
-                    <input
-                      type="text"
-                      value={assetForm.code}
-                      onChange={(e) => setAssetForm({...assetForm, code: e.target.value})}
-                      className="w-full px-6 py-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm font-mono transition-all text-lg"
-                      placeholder="Ex: NB-001"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-black text-slate-700 mb-4">Categoria</label>
-                    <select
-                      value={assetForm.category}
-                      onChange={(e) => setAssetForm({...assetForm, category: e.target.value})}
-                      className="w-full px-6 py-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium text-lg"
-                    >
-                      <option value="">Selecione uma categoria</option>
-                      {categories.map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-black text-slate-700 mb-4">Andar *</label>
-                    <select
-                      value={assetForm.floor_id}
-                      onChange={(e) => setAssetForm({...assetForm, floor_id: e.target.value, room_id: ''})}
-                      className="w-full px-6 py-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium text-lg"
-                    >
-                      <option value="">Selecione um andar</option>
-                      {floors.map(floor => (
-                        <option key={floor.id} value={floor.id}>{floor.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-black text-slate-700 mb-4">Sala</label>
-                    <select
-                      value={assetForm.room_id}
-                      onChange={(e) => setAssetForm({...assetForm, room_id: e.target.value})}
-                      className="w-full px-6 py-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium text-lg"
-                      disabled={!assetForm.floor_id}
-                    >
-                      <option value="">Selecione uma sala</option>
-                      {getRoomsForFloor(assetForm.floor_id).map(room => (
-                        <option key={room.id} value={room.id}>{room.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                
-                <div className="space-y-8">
-                  <div>
-                    <label className="block text-sm font-black text-slate-700 mb-6">Foto do Ativo</label>
-                    {assetForm.photo ? (
-                      <div className="relative">
-                        <div className="w-full h-80 bg-gradient-to-br from-slate-100 to-slate-200 rounded-3xl overflow-hidden border-4 border-white shadow-2xl">
-                          <img src={assetForm.photo} alt="Foto do ativo" className="w-full h-full object-cover" />
-                        </div>
-                        <div className="flex gap-4 mt-6">
-                          <button
-                            type="button"
-                            onClick={photoHandler.openPhotoOptions}
-                            className="flex-1 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-700 hover:to-cyan-700 text-white px-6 py-5 rounded-2xl flex items-center justify-center gap-4 font-bold text-lg transition-all shadow-xl hover:shadow-2xl transform hover:scale-105"
-                          >
-                            <Icons.Camera />
-                            Alterar Foto
-                          </button>
-                          <button
-                            type="button"
-                            onClick={removePhoto}
-                            className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white px-6 py-5 rounded-2xl transition-all shadow-xl hover:shadow-2xl transform hover:scale-105"
-                          >
-                            <Icons.Trash />
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div 
-                        onClick={photoHandler.openPhotoOptions}
-                        className="w-full h-80 border-4 border-dashed border-indigo-300 rounded-3xl flex items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-all bg-gradient-to-br from-indigo-50/50 via-purple-50/50 to-pink-50/50 backdrop-blur-sm transform hover:scale-105"
-                      >
-                        <div className="text-center p-10">
-                          <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl">
-                            <Icons.Camera />
-                          </div>
-                          <p className="text-slate-700 font-black text-xl mb-4">Clique para adicionar foto</p>
-                          <p className="text-slate-600 mb-6 font-medium">Tire uma foto ou escolha da galeria</p>
-                          <div className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 rounded-2xl text-sm font-bold border border-indigo-200">
-                            <span>Recomendado</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-black text-slate-700 mb-4">Valor (R$)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={assetForm.value}
-                        onChange={(e) => setAssetForm({...assetForm, value: e.target.value})}
-                        className="w-full px-6 py-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium text-lg"
-                        placeholder="0.00"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-black text-slate-700 mb-4">Status</label>
-                      <select
-                        value={assetForm.status}
-                        onChange={(e) => setAssetForm({...assetForm, status: e.target.value})}
-                        className="w-full px-6 py-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium text-lg"
-                      >
-                        {statuses.map(status => (
-                          <option key={status} value={status}>{status}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-black text-slate-700 mb-4">Fornecedor</label>
-                    <input
-                      type="text"
-                      value={assetForm.supplier}
-                      onChange={(e) => setAssetForm({...assetForm, supplier: e.target.value})}
-                      className="w-full px-6 py-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm transition-all font-medium text-lg"
-                      placeholder="Nome do fornecedor"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-black text-slate-700 mb-4">Número de Série</label>
-                    <input
-                      type="text"
-                      value={assetForm.serial_number}
-                      onChange={(e) => setAssetForm({...assetForm, serial_number: e.target.value})}
-                      className="w-full px-6 py-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm font-mono transition-all text-lg"
-                      placeholder="SN123456"
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="mt-10">
-                <label className="block text-sm font-black text-slate-700 mb-4">Descrição</label>
-                <textarea
-                  value={assetForm.description}
-                  onChange={(e) => setAssetForm({...assetForm, description: e.target.value})}
-                  rows={4}
-                  className="w-full px-6 py-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50/50 backdrop-blur-sm resize-none transition-all font-medium text-lg"
-                  placeholder="Descrição detalhada do ativo..."
-                />
-              </div>
-              
-              <div className="flex justify-end gap-6 mt-12 pt-8 border-t border-slate-200">
-                <button
-                  onClick={() => {
-                    setShowAssetForm(false);
-                    setEditingAsset(null);
-                    setAssetForm({
-                      name: '',
-                      code: '',
-                      category: '',
-                      description: '',
-                      value: '',
-                      status: 'Ativo',
-                      floor_id: '',
-                      room_id: '',
-                      photo: '',
-                      supplier: '',
-                      serial_number: ''
-                    });
-                  }}
-                  className="px-10 py-5 border-2 border-slate-300 text-slate-700 rounded-2xl hover:bg-slate-100 transition-all font-bold text-lg"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleSaveAsset}
-                  disabled={loading}
-                  className="px-10 py-5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 disabled:from-slate-400 disabled:to-slate-400 text-white rounded-2xl font-bold text-lg shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all"
-                >
-                  {loading ? (
-                    <div className="flex items-center gap-4">
-                      <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      <span>Salvando...</span>
-                    </div>
-                  ) : (
-                    editingAsset ? 'Atualizar Ativo' : 'Salvar Ativo'
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Photo Modal */}
-      <PhotoModal
-        isOpen={photoHandler.showPhotoOptions}
-        onClose={photoHandler.closePhotoOptions}
-        videoRef={photoHandler.videoRef}
-        canvasRef={photoHandler.canvasRef}
-        fileInputRef={photoHandler.fileInputRef}
-        isCapturing={photoHandler.isCapturing}
-        onStartCamera={photoHandler.startCamera}
-        onCapturePhoto={photoHandler.capturePhoto}
-        onFileUpload={photoHandler.handleFileUpload}
-      />
-
-      {/* Enhanced Asset Detail Modal */}
-      {showAssetDetail && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xl flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl w-full max-w-6xl max-h-[95vh] overflow-y-auto shadow-2xl border border-white/20">
-            <div className="p-10">
-              <div className="flex justify-between items-center mb-10">
-                <div>
-                  <h3 className="text-4xl font-black text-slate-900 mb-4">
-                    Detalhes do Ativo
-                  </h3>
-                  <p className="text-slate-600 text-lg font-medium">Informações completas do ativo</p>
-                </div>
-                <button
-                  onClick={() => setShowAssetDetail(null)}
-                  className="p-4 hover:bg-slate-100 rounded-2xl transition-all"
-                >
-                  <Icons.X />
-                </button>
-              </div>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                <div className="space-y-8">
-                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 p-8 rounded-3xl border-2 border-indigo-100 shadow-lg">
-                    <label className="block text-sm font-black text-indigo-700 mb-3">Nome</label>
-                    <p className="text-2xl font-black text-indigo-900">{showAssetDetail.name}</p>
-                  </div>
-                  
-                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-8 rounded-3xl border-2 border-purple-100 shadow-lg">
-                    <label className="block text-sm font-black text-purple-700 mb-3">Código</label>
-                    <p className="text-xl font-mono font-black text-purple-900 bg-white/80 px-4 py-3 rounded-2xl inline-block shadow-inner">
-                      {showAssetDetail.code}
-                    </p>
-                  </div>
-                  
-                  <div className="bg-gradient-to-r from-emerald-50 to-teal-50 p-8 rounded-3xl border-2 border-emerald-100 shadow-lg">
-                    <label className="block text-sm font-black text-emerald-700 mb-4">Categoria</label>
-                    <span className="inline-block px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-2xl text-sm font-bold shadow-lg">
-                      {showAssetDetail.category || 'Sem categoria'}
-                    </span>
-                  </div>
-                  
-                  <div className="bg-gradient-to-r from-orange-50 to-red-50 p-8 rounded-3xl border-2 border-orange-100 shadow-lg">
-                    <label className="block text-sm font-black text-orange-700 mb-4">Status</label>
-                    <StatusBadge status={showAssetDetail.status} />
-                  </div>
-                  
-                  <div className="bg-gradient-to-r from-slate-50 to-slate-100 p-8 rounded-3xl border-2 border-slate-100 shadow-lg">
-                    <label className="block text-sm font-black text-slate-700 mb-3">Localização</label>
-                    <div className="flex items-center gap-4 text-slate-900">
-                      <div className="w-10 h-10 bg-gradient-to-br from-slate-500 to-slate-600 rounded-2xl flex items-center justify-center">
-                        <Icons.MapPin />
-                      </div>
-                      <p className="font-black text-xl">{getFloorName(showAssetDetail.floor_id)}</p>
-                    </div>
-                  </div>
-                  
-                  {showAssetDetail.value && (
-                    <div className="bg-gradient-to-r from-amber-50 to-yellow-50 p-8 rounded-3xl border-2 border-amber-100 shadow-lg">
-                      <label className="block text-sm font-black text-amber-700 mb-3">Valor</label>
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-2xl flex items-center justify-center">
-                          <Icons.DollarSign />
-                        </div>
-                        <p className="text-2xl font-black text-amber-900">
-                          R$ {parseFloat(showAssetDetail.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="space-y-8">
-                  <div>
-                    <label className="block text-sm font-black text-slate-700 mb-6">Foto do Ativo</label>
-                    <div className="w-full h-96 bg-gradient-to-br from-slate-100 to-slate-200 rounded-3xl overflow-hidden border-4 border-white shadow-2xl">
-                      {showAssetDetail.photo ? (
-                        <img 
-                          src={showAssetDetail.photo} 
-                          alt={showAssetDetail.name} 
-                          className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <div className="text-center">
-                            <div className="w-20 h-20 bg-slate-400 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                              <Icons.Camera />
-                            </div>
-                            <span className="text-slate-600 font-bold text-lg">Nenhuma foto disponível</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {showAssetDetail.description && (
-                    <div className="bg-gradient-to-r from-slate-50 to-slate-100 p-8 rounded-3xl border-2 border-slate-200 shadow-lg">
-                      <label className="block text-sm font-black text-slate-700 mb-4">Descrição</label>
-                      <p className="text-slate-900 leading-relaxed font-medium text-lg">{showAssetDetail.description}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              <div className="flex justify-end gap-6 mt-12 pt-8 border-t border-slate-200">
-                <button
-                  onClick={() => {
-                    setShowAssetDetail(null);
-                    handleEditAsset(showAssetDetail);
-                  }}
-                  className="px-10 py-5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white rounded-2xl font-bold text-lg shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all"
-                >
-                  Editar Ativo
-                </button>
-                <button
-                  onClick={() => setShowAssetDetail(null)}
-                  className="px-10 py-5 border-2 border-slate-300 text-slate-700 rounded-2xl hover:bg-slate-100 transition-all font-bold text-lg"
-                >
-                  Fechar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// =================== MAIN WRAPPER ===================
-const MainApp = () => {
-  const { user, loading, connectionError } = useAuth();
-  const [showAuthModal, setShowAuthModal] = useState(false);
-
-  useEffect(() => {
-    if (!loading && !user) setShowAuthModal(true);
-  }, [user, loading]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-24 h-24 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-8"></div>
-          <h2 className="text-4xl font-black text-slate-800 mb-4">Carregando Sistema</h2>
-          <p className="text-slate-600 text-lg">Conectando com o banco de dados...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (connectionError) {
-    return (
-      <div className="min-h-screen bg-red-50 flex items-center justify-center p-4">
-        <div className="bg-white p-10 rounded-3xl shadow-2xl text-center max-w-lg border border-red-200">
-          <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-8">
-            <span className="text-4xl">❌</span>
-          </div>
-          <h2 className="text-3xl font-black text-red-800 mb-6">Erro de Conexão</h2>
-          <p className="text-red-600 mb-8 text-lg leading-relaxed">{connectionError}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="w-full bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
-          >
-            Tentar Novamente
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <>
-        <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
-          <div className="text-center max-w-6xl">
-            <div className="w-48 h-48 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-3xl flex items-center justify-center mx-auto mb-16 shadow-2xl transform hover:scale-105 transition-transform">
-              <span className="text-8xl">📦</span>
-            </div>
-            <h1 className="text-7xl lg:text-8xl font-black bg-gradient-to-r from-slate-900 via-indigo-800 to-purple-800 bg-clip-text text-transparent mb-10">
-              Asset Manager Pro
-            </h1>
-            <p className="text-2xl lg:text-3xl text-slate-600 mb-20 font-medium max-w-4xl mx-auto">
-              A solução mais moderna e inteligente para gestão de ativos empresariais com tecnologia de ponta
-            </p>
-            <div className="flex flex-col sm:flex-row gap-8 justify-center mb-20">
-              <button 
-                onClick={() => setShowAuthModal(true)} 
-                className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white px-16 py-8 rounded-3xl text-2xl font-black shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all"
-              >
-                Começar Agora
-              </button>
-              <button className="bg-white/80 backdrop-blur-xl hover:bg-white text-slate-800 border-2 border-slate-200 hover:border-slate-300 px-16 py-8 rounded-3xl text-2xl font-black transition-all shadow-xl hover:shadow-2xl">
-                Ver Demonstração
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-              <div className="bg-white/80 backdrop-blur-xl p-10 rounded-3xl border border-slate-200 shadow-xl transform hover:scale-105 transition-all">
-                <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                  <Icons.Package />
-                </div>
-                <h3 className="text-2xl font-black text-slate-900 mb-4">Gestão Completa</h3>
-                <p className="text-slate-600 text-lg">Cadastre, organize e monitore todos os seus ativos em um só lugar com tecnologia avançada</p>
-              </div>
-              <div className="bg-white/80 backdrop-blur-xl p-10 rounded-3xl border border-slate-200 shadow-xl transform hover:scale-105 transition-all">
-                <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                  <Icons.Upload />
-                </div>
-                <h3 className="text-2xl font-black text-slate-900 mb-4">Importação Inteligente</h3>
-                <p className="text-slate-600 text-lg">Importe seus dados existentes facilmente através de planilhas Excel avançadas</p>
-              </div>
-              <div className="bg-white/80 backdrop-blur-xl p-10 rounded-3xl border border-slate-200 shadow-xl transform hover:scale-105 transition-all">
-                <div className="w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                  <Icons.BarChart />
-                </div>
-                <h3 className="text-2xl font-black text-slate-900 mb-4">Analytics Avançados</h3>
-                <p className="text-slate-600 text-lg">Visualize estatísticas detalhadas e gere insights poderosos sobre seu patrimônio</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
-      </>
-    );
-  }
-
-  return <App />;
-};
-
-// =================== ROOT COMPONENT ===================
-export default function AppRoot() {
-  return (
-    <AuthProvider>
-      <MainApp />
-    </AuthProvider>
-  );
-}
+                <div className="w-12 h-12 bg-gradient
